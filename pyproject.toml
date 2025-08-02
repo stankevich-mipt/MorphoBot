@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "morphobot"
+version = "0.1.0"
+description = "A simple full stack ML app for testing and deployment of unpaired image-to-image translation models"
+authors = ["Stankevich Andrey <stankevich.as@phystech.edu>"]
+license = "Apache 2.0"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.21.0"
+black = "^24.0.0"
+mypy = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
