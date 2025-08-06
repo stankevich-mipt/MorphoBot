@@ -14,13 +14,24 @@
 
 
 """
-Configuration settings for Telegram bot derived from Pydantic BaseSettings.
+Configuration settings for Telegram bot derived from pydantic BaseSettings.
 
 This script defines application-wide configuration options
 that are loaded from .env file, providing type validation and defaults.
 """
 
-from pydantic import BaseSettings, Field
+import os
+
+from pydantic import Field
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Get the absolute path to the directory containing this file
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Absolute path to the .env file in the same directory as this script
+ENV_PATH = os.path.join(BASE_DIR, '.env')
 
 
 class Settings(BaseSettings):
@@ -32,17 +43,17 @@ class Settings(BaseSettings):
         bot-to-Telegram communication.
         webhook_base (str, optional): The base HTTPS URL exposed
         for receiving updates from Telegram via webhooks. Must be
-        a routable, publically accessible address using HTTPS.
-        Telegram will send POST requrests to this URL (or its subpaths)
-        when new messages or events occure.
+        a routable, publicly accessible address using HTTPS.
+        Telegram will send POST requests to this URL (or its subpaths)
+        when new messages or events occur.
         secret_token (str): Secret token included as part of the webhook
         URL path to authenticate incoming requests for Telegram.
         This token must be kept confidential, must be sufficiently
         random and unguessable to prevent unauthorized access.
         poll_mode (bool, default=True): Whether to use updates
         based on polling or webhook. Former is simpler and
-        is recommended for developement, as it does not
-        require domain configuration and valid SSL sertifiactes.
+        is recommended for development, as it does not
+        require domain configuration and valid SSL certificates.
         Latter is more complex, but more performant, hence
         it will be used in production.
 
@@ -57,6 +68,9 @@ class Settings(BaseSettings):
     the respective environment variables or by creating a .env file
     in the project root.
     """
+
+    model_config = SettingsConfigDict(
+        env_file=ENV_PATH, env_file_encoding='utf-8')
 
     bot_token: str = Field(..., env="BOT_TOKEN")
     webhook_base: str | None = Field(None, env="WEBHOOK_BASE")
