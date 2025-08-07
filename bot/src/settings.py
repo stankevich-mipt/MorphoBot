@@ -72,10 +72,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_PATH, env_file_encoding='utf-8')
 
-    bot_token: str = Field(..., env="BOT_TOKEN")
-    webhook_base: str | None = Field(None, env="WEBHOOK_BASE")
-    secret_token: str = Field(..., env="SECRET_TOKEN")
-    poll_mode: bool = Field(False, env="POLL_MODE")
+    bot_token: str = Field(
+        ..., json_schema_extra={"env", "BOT_TOKEN"})
+    webhook_base: str | None = Field(
+        default=None, json_schema_extra={"env", "WEBHOOK_BASE"})
+    secret_token: str = Field(
+        ..., json_schema_extra={"env", "SECRET_TOKEN"})
+    poll_mode: bool = Field(
+        default=False, json_schema_extra={"env", "POLL_MODE"})
 
 
 settings = Settings()
