@@ -24,7 +24,7 @@ services:
     depends_on:
       - minio
     environment:
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9002
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
@@ -60,4 +60,5 @@ services:
 
 networks:
   mlflow-network:
+    name: mlflow-network
     driver: bridge

@@ -1,0 +1,48 @@
+services:
+  gender-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: gender-id-dev
+    # Bring in MLflow/MinIO secrets and endpoints from mlflow/.env
+    env_file:
+      - ../../mlflow/.env
+    environment:
+      # Additional explicit overrides if needed (optional)
+      # If these are already in mlflow/.env, you can omit them here.
+      # Keeping them commented shows the expected variables:
+      MLFLOW_TRACKING_URI: "http://mlflow-server:5000"
+      MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"
+      # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      CUDA_VISIBLE_DEVICES: "0"
+      # Make your package importable for notebooks and scripts
+      PYTHONPATH: /workspace/src
+    volumes:
+      # Mount the entire gender_id project for live edits
+      - .:/workspace
+      # Mount shared datasets (predownloaded on host)
+      - ../../data:/data
+      # Cache directories to speed up subsequent runs
+      - ~/.cache/torch:/root/.cache/torch
+      - poetry_cache:/root/.cache/pypoetry
+    ports:
+      - "6006:6006"  # TensorBoard (if you run it)
+    networks:
+      # Reuse the same network as mlflow/docker-compose.yml
+      - mlflow-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    working_dir: /workspace
+
+volumes:
+  poetry_cache:
+
+networks:
+  mlflow-network:
+    external: true
