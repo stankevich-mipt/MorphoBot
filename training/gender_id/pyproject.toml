@@ -33,6 +33,8 @@ pytest = "^7.4.0"
 pytest-cov = "^4.1.0"
 mypy = "^1.7.0"
 pre-commit = "^3.5.0"
+dlib = "^20.0.0"
+flake8 = "^7.3.0"
 
 [tool.poetry.scripts]
 train-gender = "gender_id.experiments.train_baseline:main"
