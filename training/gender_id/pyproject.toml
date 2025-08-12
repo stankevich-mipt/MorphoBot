@@ -41,6 +41,7 @@ train-gender = "gender_id.experiments.train_baseline:main"
 evaluate-models = "gender_id.experiments.evaluate:main"
 hyperopt-search = "gender_id.experiments.hyperopt_search:main"
 prepare-data = "scripts.data_prep:main"
+build-manifest = "scripts.build_manifest_dlib_detectors:main"
 
 # PyTorch GPU source
 [[tool.poetry.source]]
