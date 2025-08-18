@@ -215,5 +215,4 @@ training/gender_id/notebooks/
 
 # ignore everything in dataset directories except the download scripts
 data/*
-
 !data/gender_datasets/utkfaces/download_utkfaces.py

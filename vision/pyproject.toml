@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "vision"
+version = "0.1.0"
+description = "Shared computer-vision utilities: detection, facial alignment and templates."
+authors = ["Stankevich Andrey <stankevich.as@phystech.edu>"]
+license = "Apache 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+opencv-python = "^4.10"
+dlib = "^20.0.0"
+
+[tool.poetry.extras]
+align = ["opencv-python"]          # alignment/warping utilities
+detect = ["opencv-python", "dlib"] # detection via OpenCV/dlib
+registry = ["mlflow"]              # artifact fetching from registry
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+pytest-cov = "^5.0"
+mypy = "^1.10"
+flake8 = "^7.0.0"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_optional = true
+disallow_untyped_defs = true
+exclude = '(^\.venv/|^build/|^dist/)'
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

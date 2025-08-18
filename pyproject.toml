@@ -4,17 +4,24 @@ version = "0.1.0"
 description = "A simple full stack ML app for testing and deployment of unpaired image-to-image translation models"
 authors = ["Stankevich Andrey <stankevich.as@phystech.edu>"]
 license = "Apache 2.0"
+packages = [{ include = "vision" }]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 fastapi = "^0.116.1"
 pydantic-settings = "^2.10.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.0.0"
+flake8 = "^7.0.0"
 mypy = "^1.0.0"
 pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
+
+# shared CV utilities: detection, alignment, templates 
+[tool.poetry.dependencies.vision]
+path = "vision"
+develop = true 
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
