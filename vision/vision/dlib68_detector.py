@@ -12,8 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-"""
-Facial keypoint detector that utilizes dlib.
+"""Facial keypoint detector that utilizes dlib.
 
 Provides the nessesary functional to estimate 68-point based
 facial landmarks on tight facial crops.
@@ -27,10 +26,18 @@ from typing import Optional
 
 
 class Dlib68Detector:
+    """Class implementing dlib-based keypoint detection."""
 
-    """Class implementing dlib-based keypoint detection.
+    def __init__(
+        self,
+        predictor_path: str | os.PathLike,
+        detector_kind: str = 'hog',
+        upsample_times: int = 1,
+        margin_ratio: tuple[float, float] = (0.10, 0.25),
+    ):
+        """Instatiate object with preloaded predictor weights.
 
-    Attributes:
+        Attributes:
         predictor_path (str | os.PathLike): absolute path to dlib
         facial keypoint predictor model
         detector_kind (str, optional, default='hog'): the type of
@@ -40,16 +47,7 @@ class Dlib68Detector:
         margin_ratio (tuple[float, float], optional, default=(0.1, 0.25)):
         margins to expand the bounding box to include chin/hair region
         - dlib generally provides quite tight crops that omit these details
-    """
-
-    def __init__(
-        self,
-        predictor_path: str | os.PathLike,
-        detector_kind: str = 'hog',
-        upsample_times: int = 1,
-        margin_ratio: tuple[float, float] = (0.10, 0.25),
-    ):
-
+        """
         self.upsample_times = int(upsample_times)
         self.margin_ratio = margin_ratio
 
@@ -82,7 +80,6 @@ class Dlib68Detector:
         img: np.ndarray
     ):
         """Clip the bbox so it fits the image."""
-
         h, w = img.shape[0], img.shape[1]
 
         x1 = max(0, min(x1, w - 1))
@@ -113,7 +110,6 @@ class Dlib68Detector:
         Returns:
             bbox, expanded with ratio provided by self.margin_ratio
         """
-
         x1, y1, x2, y2 = self._rect_to_xyxy(rect)
         w, h = x2 - x1, y2 - y1
         dx, dy = int(self.margin_ratio[0] * w), int(self.margin_ratio[1] * h)
@@ -137,7 +133,6 @@ class Dlib68Detector:
             face bbox.
 
         """
-
         detections = self.detector(img_bgr, self.upsample_times)
         if len(detections) == 0:
             return None
@@ -164,7 +159,6 @@ class Dlib68Detector:
             float32 coordinate array of the detected landmarks
             with shape [68, 2]
         """
-
         shape = self.shape_predictor(img_bgr, rect)
         pts = np.array(
             [(shape.part(i).x, shape.part(i).y) for i in range(68)],

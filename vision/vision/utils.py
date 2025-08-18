@@ -12,8 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-"""
-Utility functions for data processing aggregated into a single script.
+"""Utility functions for data processing aggregated into a single script.
 
 Index:
     - read_image_bgr
@@ -28,31 +27,37 @@ Index:
 
 """
 
-import cv2
-import numpy as np
+
 from pathlib import Path
 from typing import Optional
+
+import cv2
+import numpy as np
 
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
 
 def find_images(root: Path) -> list[Path]:
+    """Search for images within dir recursively."""
     return [p for p in root.rglob("*") if p.suffix.lower() in _IMG_EXTS]
 
 
 def read_bytes_bgr(data: bytes) -> np.ndarray:
+    """Convert binary buffer with image data to numpy array."""
     arr = np.frombuffer(data, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     return np.asarray(img)
 
 
 def read_image_bgr(path: Path) -> Optional[np.ndarray]:
+    """Load the image at path as numpy array (H, W, 3) in BGR."""
     img = cv2.imread(str(path))
     return img
 
 
 def read_image_rgb(path: Path) -> Optional[np.ndarray]:
+    """Load the image at path as numpy array (H, W, 3) in RGB."""
     img = read_image_bgr(path)
     if img is None:
         return None
@@ -60,15 +65,18 @@ def read_image_rgb(path: Path) -> Optional[np.ndarray]:
 
 
 def bbox_size(x1: int, y1: int, x2: int, y2: int):
+    """Get the absolute values of bbox height and width."""
     return max(0, x2 - x1), max(0, y2 - y1)
 
 
 def bbox_aspect_ratio(w: int, h: int, eps: float = 1e-6):
+    """Get the bbox aspect ratio."""
     a = (max(w, h) + eps) / (min(w, h) + eps)
     return a
 
 
 def bbox_area(w: int, h: int):
+    """Get the area covered by (w, h) bounding box."""
     return w * h
 
 
@@ -81,7 +89,14 @@ def bbox_is_plausible(
     min_area_frac: float = 0.01,
     max_area_frac: float = 0.85,
 ) -> tuple[bool, str]:
+    """Check whether bbox matches the set of filters.
 
+    Returns:
+        (status, reason), with the latter being "ok" if
+        the criteria are met, and brief rejection cause
+        otherwise.
+
+    """
     x1, y1, x2, y2 = bbox
     w, h = bbox_size(x1, y1, x2, y2)
     if w < min_side or h < min_side:
@@ -103,7 +118,7 @@ def draw_preview(
     bbox: Optional[list[int]],
     pts68: Optional[np.ndarray]
 ) -> np.ndarray:
-
+    """Draw bbox rectangle and facial keypoints over image copy."""
     vis = img.copy()
     if bbox is not None:
 
@@ -129,7 +144,7 @@ def grid_preview(
     cols: int = 4,
     cell_size: tuple[int, int] = (256, 256)
 ) -> Optional[np.ndarray]:
-
+    """Create an image grid from the list of input images."""
     if not images:
         return None
 

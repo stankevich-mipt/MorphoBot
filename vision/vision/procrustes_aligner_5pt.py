@@ -13,7 +13,8 @@
 #    limitations under the License.
 
 
-"""
+"""Procrustes alignment functionality implementation.
+
 Provides the implementation of class that does 5 anchor
 keypoint alignment with the precomputed templates.
 Intended usage is the shared instance pattern: the class
@@ -22,12 +23,12 @@ is repeatedly addressed throughout its runtime by each request.
 Such design pattern reduces the system load caused by repeated JSON I/O.
 """
 
+from dataclasses import dataclass
+import json
+from pathlib import Path
 
 import cv2
-import json
 import numpy as np
-from pathlib import Path
-from dataclasses import dataclass
 
 
 _LEFT_EYE_PTS = tuple(range(36, 42))
@@ -40,19 +41,17 @@ _RIGHT_MOUTH_CORNER_PTS = tuple((54, ))
 def select_five_from_68(
     pts68: np.ndarray
 ) -> np.ndarray:
-    """
-    Build 5 anchors from 68-point landmark array
-    following the iBUG/300-W convention.
+    """Build 5 anchors from 68-point landmark array.
+
+    Landmarks following the iBUG/300-W convention.
 
     Args:
         pts68: float32/64 array of landmark coords.
 
     Returns:
-        np.ndarray: a [5, 2] array representing coordinates
-        of left eye, right eye, nose tip, left and right mouth
-        corners.
-"""
-
+        a [5, 2] array representing coordinates of left eye,
+        right eye, nose tip, left and right mouth corners.
+    """
     le = pts68[list(_LEFT_EYE_PTS)].mean(0)
     re = pts68[list(_RIGHT_EYE_PTS)].mean(0)
     nose = pts68[list(_NOSE_TIP_PTS)].mean(0)
@@ -68,16 +67,15 @@ def similarity_procrustes(
     eps: float = 1e-12
 ) -> tuple[np.ndarray, float]:
     """Closed-form Procrustes similarity solution mapping src->dst.
+
     See https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem
     for additional information.
-
     Args:
         src: (N, 2) float32/64 source points.
         dst: (N, 2) float32/64 destination poinst.
         eps: stability constant.
 
     Returns:
-
         M: (2, 3) float32 affine transformation matrix,
         such that [x_dst, y_dst] ≈ M @ [x_src, y_src, 1]^T
         err: mean L2 distance between points after transform.
@@ -85,7 +83,6 @@ def similarity_procrustes(
     Notes:
         - Requires N >= 2 non-collinear points for a well-posed solution
     """
-
     if not (src.shape == dst.shape and src.shape[1] == 2):
         raise ValueError("Invalid shape of point cloud array")
 
@@ -127,8 +124,7 @@ def similarity_procrustes(
 
 
 def invert_similarity(M: np.ndarray) -> np.ndarray:
-    """
-    Exact inverse of a 2x3 similarity transform (scale*R | t)
+    """Exact inverse of a 2x3 similarity transform (scale*R | t).
 
     Args:
         M: (2, 3) float32/64
@@ -136,7 +132,6 @@ def invert_similarity(M: np.ndarray) -> np.ndarray:
     Returns:
         M_inv: (2, 3) float32, s.t. p_src ≈ M_inv @ [p_dst, 1]^T
     """
-
     M = np.asarray(M, dtype=np.float64)
     A = M[:, :2]
     b = M[:, 2:3]
@@ -154,16 +149,16 @@ def warp_to_template(
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: tuple[int, int, int] = (0, 0, 0),
 ) -> tuple[np.ndarray | None, np.ndarray | None, float]:
-    """
-    Compute Procrustes similarity M from
-    src5->dst5 and warp the image to the template.
+    """Align an image to the provided template.
+
+    Warp matrix is computed while solving Procrustes
+    problem from src5 to dst5.
 
     Returns:
         aligned: (out_size, out_size, 3) or None
         M: (2, 3) forward transform or None
         err: mean alignment error
     """
-
     M, err = similarity_procrustes(src5, dst5)
 
     if not np.isfinite(M).all():
@@ -185,15 +180,15 @@ def warp_back_from_template(
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: tuple[int, int, int] = (0, 0, 0),
 ) -> np.ndarray:
-    """
-    Apply the inverse to the Procrustes
-    optimal transform to map image back to its original orientation.
+    """Reconstruct original image orientation.
+
+    Apply the inverse to the Procrustes optimal transform
+    to map image back to its original orientation.
 
     Returns:
         back: (dst_shape[0], dst_shape[1], 3) np.array of the original
         image shape.
     """
-
     H, W = dst_shape
     M_inv = invert_similarity(M)
     back = cv2.warpAffine(
@@ -205,11 +200,13 @@ def warp_back_from_template(
 
 @dataclass(frozen=True)
 class Template:
+    """Dataclass representing alignment template."""
     points: np.ndarray
     target_size: int
 
 
 def load_template(path: str | Path) -> Template:
+    """Creates Template instance from .json template file."""
     obj = json.loads(Path(path).read_text())
     pts = np.array(obj["points"], dtype=np.float32)
     return Template(points=pts, target_size=int(obj["size"]))
@@ -217,6 +214,7 @@ def load_template(path: str | Path) -> Template:
 
 @dataclass(frozen=True)
 class WarpContext:
+    """Dataclass for warp-related parameter storage."""
     M: np.ndarray
     dst_shape: tuple[int, int]
     interpolation: int = cv2.INTER_LINEAR
@@ -225,19 +223,7 @@ class WarpContext:
 
 
 class FivePointAligner:
-    """
-    Class that exposes 5 point anchor alignment interface.
-
-    Attributes:
-        male_template (Template):
-            male alignment template dataclass instance
-        female_template (Template):
-            female alignment template dataclass instance
-        dst_size (int):
-            target image size for affine warping.
-        default_template (Template): json template for faces that
-        cannot be properly classified
-    """
+    """Class that exposes 5 point anchor alignment interface."""
 
     def __init__(
         self,
@@ -245,7 +231,18 @@ class FivePointAligner:
         female_template: Template,
         default_template: Template | None = None
     ):
+        """Instatiate the object with template triplet.
 
+        Attributes:
+            male_template (Template):
+                male alignment template dataclass instance
+            female_template (Template):
+                female alignment template dataclass instance
+            dst_size (int):
+                target image size for affine warping.
+            default_template (Template): json template for faces that
+            cannot be properly classified
+        """
         self.male = male_template
         self.female = female_template
         self.default = default_template or male_template
@@ -275,8 +272,11 @@ class FivePointAligner:
         pts68: np.ndarray,
         label: str | None = None
     ) -> tuple[np.ndarray | None, WarpContext | None, float]:
+        """Estimate and apply the Procrustes transform.
 
-        """
+        An alignment template to use is inferred through label,
+        with default attribute providing fallback.
+
         Args
             img_bgr: source image
             pts68: float32/64 array of facial landmarks
@@ -285,12 +285,12 @@ class FivePointAligner:
         Returns:
             aligned: (target_size, target_size, 3) or None
             ctx: context for future inverse warp
+            err: mean squared error between points after alignment
 
         Note:
             target size is given by self.target_size
             attribute specified at shared instance creation.
         """
-
         src = select_five_from_68(pts68)
         dst = self.dst_for_label(label)
 
@@ -314,8 +314,8 @@ class FivePointAligner:
         img_aligned_bgr: np.ndarray,
         ctx: WarpContext,
     ) -> np.ndarray:
+        """Estimate and apply the inverse of Procrustes transform.
 
-        """
         Args:
             img_aligned_bgr: input image
             ctx: warp context estimated with forward Procrustes pass
@@ -323,7 +323,6 @@ class FivePointAligner:
         Returns:
             back: (H, W, 3) target of the inverse to the forward map
         """
-
         back = warp_back_from_template(
             img_aligned_bgr, ctx.M,
             ctx.dst_shape,
