@@ -207,8 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # static mounts for MLFlow+MinIO setup used for experiment tracking
-mlflow/mlflow/mlflow_backend/
-mlflow/mlflow/minio_data/
+mlflow_registry/registry_data/mlflow_backend/
+mlflow_registry/registry_data/minio_storage/
 
 # temporarily ignore notebooks subfolder in training directory
 training/gender_id/notebooks/

@@ -1,0 +1,45 @@
+[flake8]
+# Maximum line length (common for ML projects due to long variable names)
+max-line-length = 88
+
+# Ignore specific error codes that are common in ML projects
+extend-ignore = 
+    E203,  
+    # Whitespace before ':' (conflicts with Black formatter)
+    E501,  
+    # Line too long (handled by max-line-length)
+    W503,  
+    # Line break before binary operator (outdated rule)
+    F401,  
+    # Module imported but unused (common during development)
+    E302,  
+    # Expected 2 blank lines (can be restrictive for small scripts)
+
+# Exclude common directories
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .env,
+    build,
+    dist,
+    *.egg-info,
+    .pytest_cache,
+    .mypy_cache
+
+# Set maximum complexity for functions (good for ML code)
+max-complexity = 10
+
+# Per-file ignores (useful for specific file types)
+per-file-ignores =
+    # Allow unused imports in __init__.py files
+    __init__.py:F401
+    # Allow unused imports and redefinitions in tests  
+    tests/*:F401,F811  
+# Import order settings (if using flake8-import-order)
+import-order-style = google
+application-import-names = bot, models, registry
+
+# Docstring settings (if using flake8-docstrings)
+docstring-convention = google

@@ -1,0 +1,31 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    --no-install-recommends curl ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+# install poetry
+RUN curl -sSL https://install.python-poetry.org | python -
+ENV PATH="/root/.local/bin:$PATH"
+
+# copy registry source code
+COPY pyproject.toml ./
+COPY mlflow_registry/ ./mlflow_registry/
+
+# install dependencies w/o dev 
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi
+
+# default set of env variables; docker-compose overrides those
+ENV MLFLOW_TRACKING_URI=http://mlflow-server:5000
+ENV MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+ENV AWS_ACCESS_KEY_ID=minioadmin
+ENV AWS_SECRET_ACCESS_KEY=minioadmin
+
+# copy the scripts last
+COPY scripts/ ./scripts/
+
+# placeholder job
+CMD ["bash", "-lc", "echo 'mlflow-bootstrap image ready'"]

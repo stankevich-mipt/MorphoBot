@@ -1,0 +1,111 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - ./registry_data/minio_storage:/data
+    ports:
+      - "9002:9000"   # MinIO API
+      - "9001:9001"   # MinIO Console
+    command: server /data --console-address ":9001"
+    networks:
+      - mlflow-network
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 $${AWS_ACCESS_KEY_ID} $${AWS_SECRET_ACCESS_KEY};
+      mc mb --ignore-existing local/$${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT};
+      touch /tmp/ready && tail -f /dev/null;
+      "
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - mlflow-network
+
+  mlflow-server:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mlflow-server
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_healthy
+
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+    volumes:
+      - ./registry_data/mlflow_backend:/mlflow_backend
+    ports:
+      - "5000:5000"
+    command: >
+      poetry run mlflow server 
+      --backend-store-uri sqlite:////mlflow_backend/mlflow.db 
+      --default-artifact-root s3://${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+      --serve-artifacts
+      --port 5000
+      --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mlflow-network
+
+  mlflow-bootstrap:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mlflow-bootstrap
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
+      minio-init:
+        condition: service_healthy
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+    command: >
+      bash -c "poetry run python scripts/register_third_party.py 
+      --predictor-path /third_party/dlib/shape_predictor_68_face_landmarks.dat 
+      --force
+      &&
+      echo 'Bootstrap finished.'
+      &&
+      sleep 432000;
+      "
+    networks:
+      - mlflow-network
+
+networks:
+  mlflow-network:
+    name: mlflow-network
+    driver: bridge
