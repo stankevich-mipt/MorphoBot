@@ -27,7 +27,7 @@ services:
       /bin/sh -c "
       sleep 5;
       mc alias set local http://minio:9000 $${AWS_ACCESS_KEY_ID} $${AWS_SECRET_ACCESS_KEY};
-      mc mb --ignore-existing local/$${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT};
+      mc mb --ignore-existing local/$${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT#*://};
       touch /tmp/ready && tail -f /dev/null;
       "
     healthcheck:
@@ -64,7 +64,7 @@ services:
     command: >
       poetry run mlflow server 
       --backend-store-uri sqlite:////mlflow_backend/mlflow.db 
-      --default-artifact-root s3://${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+      --default-artifact-root ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
       --serve-artifacts
       --port 5000
       --host 0.0.0.0

@@ -37,6 +37,8 @@ import urllib.request
 
 import mlflow
 import mlflow.tracking as mlflow_tracking
+from mlflow_registry import configure_mlflow, with_artifact_root
+
 
 REGISTRY_EXPERIMENT_NAME = "third_party_assets"
 REGISTRY_RUN_NAME = "dlib_shape_predictor_68_init"
@@ -69,18 +71,19 @@ def download_predictor_if_needed(
     print(f"Downloaded predictor checkpoint and extracted to {target_path}")
 
 
+@with_artifact_root
 def registed_dlib_predictor(
+    artifact_location: str,
     predictor_path: str,
     source_url: str,
-    artifact_location: str,
     force: bool = True
 ) -> str:
     """Check for predictor artifact existence; if there's none, create one.
 
     Args:
+        artifact_location: where exactly to store artifacts
         predictor_path: absolute path to predictor artifact
         source_url: url to download predictor weights
-        artifact_location: where exactly to store artifacts
         force: whether to overwrite artifact if there is one
     """
     client = mlflow_tracking.MlflowClient()
@@ -155,29 +158,15 @@ def main():  # noqa
     )
     args = parser.parse_args()
 
-    # get correct tracking uri
-    tracking_uri = os.getenv(
-        "MLFLOW_TRACKING_URI", "http://mlflow-server:5000"
-    )
-    # pickup the artifact root from env, fallback to local file if not set
-    artifact_root = os.getenv(
-        "MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT", "file:///mlflow/artifacts"
-    )
-    artifact_location = f"s3://{artifact_root}/{ARTIFACT_SUBPATH}"
-    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", None)
-    aws_secret_access_key = os.getenv(
-        "AWS_SECRET_ACCESS_KEY", None
-    )
-    print(tracking_uri, artifact_location, aws_access_key_id, aws_secret_access_key)
-    mlflow.set_tracking_uri(tracking_uri)
+    configure_mlflow()
 
     predictor_path = Path(args.predictor_path)
     predictor_path.parent.mkdir(parents=True, exist_ok=True)
     download_predictor_if_needed(predictor_path, args.source_url)
 
     run_id = registed_dlib_predictor(
-        str(predictor_path), args.source_url,
-        artifact_location, force=args.force
+        ARTIFACT_SUBPATH, str(predictor_path),
+        args.source_url, force=args.force
     )
     write_registry_reference(run_id)
 

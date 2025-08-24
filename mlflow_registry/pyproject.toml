@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Utility package for MLFlow registry querying, artifact discovery, and artifact management"
 authors = ["Stankevich Andrey <stankevich.as@phystech.edu>"]
 license = "Apache 2.0"
+packages = [{ include = "mlflow_registry" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"

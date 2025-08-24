@@ -15,6 +15,28 @@
 
 """Package mlflow/mlflow_registry.
 
-This is the package initialization file. Currently, it only contains the
-license header and does not expose any public symbols or initialization code.
+Initialization file provides API for registry-related operations
+available to other services.
 """
+
+from .config import RegistryConfig
+from .search import (
+    find_and_fetch_artifacts_by_tags,
+    get_latest_runs_by_tags,
+    get_unique_run_by_tags,
+    RegistrySearchError
+)
+from .uri_mapping import with_artifact_root
+
+__all__ = [
+    "RegistryConfig",
+    "RegistrySearchError",
+    "find_and_fetch_artifacts_by_tags",
+    "get_latest_runs_by_tags",
+    "get_unique_run_by_tags",
+    "with_artifact_root",
+]
+
+def configure_mlflow() -> None:
+    """Read env variables and configure MLFlow registry."""
+    RegistryConfig().configure_mlflow()
