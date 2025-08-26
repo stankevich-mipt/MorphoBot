@@ -22,9 +22,9 @@ class RegistryConfig:
     """An object representing MLFlow registry configuration."""
 
     def __init__(self):
-        """Class attributes are inferred from env variables."""
+        """Infer class attributes from env variables."""
         self.tracking_uri = os.getenv(
-            "MLFLOW_TRACKING_URI", "https://localhost:5000"
+            "MLFLOW_TRACKING_URI", "http://localhost:5000"
         )
         self.s3_endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL", None)
         self.aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", None)
@@ -33,7 +33,7 @@ class RegistryConfig:
         )
 
     def configure_mlflow(self):
-        """Method is provided to override other possible .env changes if needed."""
+        """Override other possible .env changes if needed."""
         mlflow.set_tracking_uri(self.tracking_uri)
         if self.s3_endpoint_url:
             os.environ["MLFLOW_S3_ENDPOINT_URL"] = self.s3_endpoint_url

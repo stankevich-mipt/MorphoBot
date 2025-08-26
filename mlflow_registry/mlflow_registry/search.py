@@ -28,6 +28,7 @@ class RunRecord:
     """Lightweight dataclass representing run metadata."""
     run_id: str
     experiment_id: str
+    start_time: int
     tags: dict[str, str]
     params: dict[str, str]
 
@@ -46,7 +47,7 @@ def _build_tag_filter(tags: dict[str, str]) -> str:
     return " AND ".join(clauses) if clauses else ""
 
 
-def search_run_by_tags(
+def search_runs_by_tags(
     tags: dict[str, str],
     experiment_names: Optional[Sequence[str]] = None,
     max_results: int = 2000,
@@ -87,7 +88,8 @@ def search_run_by_tags(
                 RunRecord(
                     run_id=run.info.run_id,
                     experiment_id=run.info.experiment_id,
-                    tags={k: v for k, v in run.data.tags.values()},
+                    start_time=run.info.start_time,
+                    tags={k: v for k, v in run.data.tags.items()},
                     params={k: v for k, v in run.data.params.items()}
                 )
             )
@@ -100,7 +102,7 @@ def get_unique_run_by_tags(
     experiment_names: Optional[Sequence[str]] = None,
 ) -> RunRecord:
     """Return exactly one run matching tags; raise if zero or multiple."""
-    runs = search_run_by_tags(tags, experiment_names=experiment_names, max_results=50)
+    runs = search_runs_by_tags(tags, experiment_names=experiment_names, max_results=50)
     if not runs:
         raise RegistrySearchError(f"No MLFlow runs found for tags={tags}")
 
@@ -114,17 +116,19 @@ def get_unique_run_by_tags(
     return next(iter(unique.values()))
 
 
-def get_latest_runs_by_tags(
+def get_latest_run_by_tags(
     tags: dict[str, str],
     experiment_names: Optional[Sequence[str]] = None,
 ) -> RunRecord:
     """Return the most recent run matching tags; raise if zero."""
-    runs = search_run_by_tags(
+    runs = search_runs_by_tags(
         tags, experiment_names=experiment_names,
         max_results=50, order_by=["attribute.start_time DESC"]
     )
     if not runs:
         raise RegistrySearchError(f"No MLFlow runs found for tags={tags}")
+
+    runs.sort(key=lambda r: r.start_time, reverse=True)
 
     return runs[0]
 
@@ -159,6 +163,6 @@ def find_and_fetch_artifacts_by_tags(
     if unique:
         run = get_unique_run_by_tags(tags=tags, experiment_names=experiment_names)
     else:
-        run = get_latest_runs_by_tags(tags=tags, experiment_names=experiment_names)
+        run = get_latest_run_by_tags(tags=tags, experiment_names=experiment_names)
 
     return resolve_artifact_to_local(run, artifact_subpath, dst_dir=dst_dir)

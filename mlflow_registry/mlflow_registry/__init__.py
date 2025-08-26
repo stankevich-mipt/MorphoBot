@@ -22,7 +22,7 @@ available to other services.
 from .config import RegistryConfig
 from .search import (
     find_and_fetch_artifacts_by_tags,
-    get_latest_runs_by_tags,
+    get_latest_run_by_tags,
     get_unique_run_by_tags,
     RegistrySearchError
 )
@@ -32,7 +32,7 @@ __all__ = [
     "RegistryConfig",
     "RegistrySearchError",
     "find_and_fetch_artifacts_by_tags",
-    "get_latest_runs_by_tags",
+    "get_latest_run_by_tags",
     "get_unique_run_by_tags",
     "with_artifact_root",
 ]

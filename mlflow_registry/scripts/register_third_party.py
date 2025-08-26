@@ -14,6 +14,8 @@
 
 """Register dlib-68 landmark shape predictor in MLFlow as 3p-dependency.
 
+Related artifacts use "vision_landmarks_detector" tag profile.
+
 Usage (from shell or entrypoint):
     python mlflow/register_third_party.py --predictor-path
     /models/third_party/shape_predictor_68_face_landmarks.dat
@@ -23,8 +25,6 @@ Options:
     -- source (optional, default=DLIB_MODEL_URL): valid url to dlib
     predictor checkpoint file
     -- force (optional, default=True): always upload, even if run exists
-
-
 
 """
 
@@ -38,6 +38,7 @@ import urllib.request
 import mlflow
 import mlflow.tracking as mlflow_tracking
 from mlflow_registry import configure_mlflow, with_artifact_root
+from mlflow_registry.tag_profiles import TAG_PROFILES
 
 
 REGISTRY_EXPERIMENT_NAME = "third_party_assets"
@@ -47,7 +48,7 @@ REGISTRY_INFO_FILE = "third_party_registry_location.txt"
 DLIB_MODEL_URL = (
     "https://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2"
 )
-
+ARTIFACT_TAG_PROFILE = TAG_PROFILES['vision_landmarks_detector']
 
 def download_predictor_if_needed(
     target_path: Path, url: str = DLIB_MODEL_URL
@@ -113,9 +114,10 @@ def registed_dlib_predictor(
         run_name=REGISTRY_RUN_NAME,
     ) as run:
         mlflow.log_artifact(predictor_path)
+        for tag_key, tag_value in ARTIFACT_TAG_PROFILE.items():
+            mlflow.set_tag(str(tag_key.value), str(tag_value.value))
+
         mlflow.set_tag("source_url", str(source_url))
-        mlflow.set_tag("type", "third-party")
-        mlflow.set_tag("role", "landmark-detector")
         mlflow.set_tag("version", "v1")
         mlflow.set_tag(
             "description",

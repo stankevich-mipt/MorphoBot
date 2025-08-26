@@ -9,6 +9,10 @@
         "${workspaceFolder}/.venv/bin/flake8"
     ],
     "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests/mlflow_registry"
+    ],
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
     "python.analysis.typeCheckingMode": "standard",
     "python.analysis.stubPath": "typings",
     "python.analysis.diagnosticMode": "workspace",
