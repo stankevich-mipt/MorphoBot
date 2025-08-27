@@ -26,6 +26,7 @@ import os
 from unittest.mock import patch
 
 import mlflow
+from mlflow_registry import configure_mlflow
 from mlflow_registry import RegistryConfig
 import pytest
 
@@ -82,7 +83,7 @@ def test_config_idempotent_calls(monkeypatch):
 
         cfg = RegistryConfig()
         cfg.configure_mlflow()
-        cfg.configure_mlflow()
+        configure_mlflow()
 
         assert mock_set_uri.call_count == 2
         mock_set_uri.assert_any_call("http://test-mlflow-server:5000")

@@ -51,8 +51,8 @@ def build_artifact_s3_uri(artifact_subpath: str) -> str:
     parsed = urlparse(artifact_root)
     scheme = parsed.scheme
     root_path = parsed.netloc + parsed.path
-    normalized_root = root_path.rstrip("/")
-    normalized_subpath = artifact_subpath.lstrip("/")
+    normalized_root = root_path.rstrip("/").lstrip("/")
+    normalized_subpath = artifact_subpath.rstrip("/").lstrip("/")
 
     if scheme == "s3":
         full_uri = f"s3://{normalized_root}/{normalized_subpath}"
@@ -66,8 +66,18 @@ def with_artifact_root(func):
     """Transform the first string argument into proper artifact URI."""
 
     @functools.wraps(func)
-    def wrapper(artifact_subpath: str, *args, **kwargs):
-        full_uri = build_artifact_s3_uri(artifact_subpath)
-        return func(full_uri, *args, **kwargs)
+    def wrapper(*args, **kwargs):
+
+        if len(args) == 0:
+            if kwargs:
+                first_k, first_v = next(iter(kwargs.items()))
+                kwargs[first_k] = build_artifact_s3_uri(first_v)
+            else:
+                return func()
+        else:
+            args = list(args)
+            args[0] = build_artifact_s3_uri(args[0])
+            args = tuple(args)
+        return func(*args, **kwargs)
 
     return wrapper
