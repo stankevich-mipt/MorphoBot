@@ -115,7 +115,7 @@ def bbox_is_plausible(
 
 def draw_preview(
     img: np.ndarray,
-    bbox: Optional[list[int]],
+    bbox: Optional[tuple[int, int, int, int]],
     pts68: Optional[np.ndarray]
 ) -> np.ndarray:
     """Draw bbox rectangle and facial keypoints over image copy."""
