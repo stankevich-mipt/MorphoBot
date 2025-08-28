@@ -19,10 +19,11 @@ facial landmarks on tight facial crops.
 The latter are obtained with innate dlib HOG-based detector.
 """
 
-import dlib
-import numpy as np
 import os
 from typing import Optional
+
+import dlib
+import numpy as np
 
 
 class Dlib68Detector:

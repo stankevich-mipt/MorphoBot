@@ -31,6 +31,10 @@ strict_optional = true
 disallow_untyped_defs = true
 exclude = '(^\.venv/|^build/|^dist/)'
 
+[tool.pytest.ini_options]
+testpaths = ["../tests/mlflow_registry"]
+python_files = ["test_*.py"]
+
 [build-system]
 requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"

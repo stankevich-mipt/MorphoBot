@@ -32,7 +32,6 @@ import argparse
 import os
 from pathlib import Path
 import shutil
-import sys
 import urllib.request
 
 import mlflow
@@ -73,7 +72,7 @@ def download_predictor_if_needed(
 
 
 @with_artifact_root
-def registed_dlib_predictor(
+def register_dlib_predictor(
     artifact_location: str,
     predictor_path: str,
     source_url: str,
@@ -115,7 +114,7 @@ def registed_dlib_predictor(
     ) as run:
         mlflow.log_artifact(predictor_path)
         for tag_key, tag_value in ARTIFACT_TAG_PROFILE.items():
-            mlflow.set_tag(str(tag_key.value), str(tag_value.value))
+            mlflow.set_tag(str(tag_key), str(tag_value))
 
         mlflow.set_tag("source_url", str(source_url))
         mlflow.set_tag("version", "v1")
@@ -166,7 +165,7 @@ def main():  # noqa
     predictor_path.parent.mkdir(parents=True, exist_ok=True)
     download_predictor_if_needed(predictor_path, args.source_url)
 
-    run_id = registed_dlib_predictor(
+    run_id = register_dlib_predictor(
         ARTIFACT_SUBPATH, str(predictor_path),
         args.source_url, force=args.force
     )

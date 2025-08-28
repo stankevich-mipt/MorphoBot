@@ -18,6 +18,7 @@ Tag lists are provided with the set of enums.
 """
 
 from enum import Enum
+from typing import Union
 
 
 class strEnum(str, Enum):
@@ -42,14 +43,21 @@ class Type(strEnum):
     THIRD_PARTY = "third_party"
     MODEL = "model"
     TEMPLATE = "template"
+    DATA = "data"
+    MISC = "misc"
 
 class Role(strEnum):
     """Possible roles attributed to the artifact set."""
     LANDMARK_DETECTOR = "landmark_detector"
     ALIGNMENT_TEMPLATE = "alignment_template"
+    LANDMARK_MANIFEST = "landmark_manifest"
+    PREVIEW = "functionality_preview"
 
 class Stage(strEnum):
     """Project lifecycle stages."""
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
+
+
+TagValues = Union[Type, Role, Stage]

@@ -13,6 +13,6 @@
     "python.analysis.stubPath": "typings",
     "python.analysis.diagnosticMode": "workspace",
     "python.analysis.packageIndexDepths": [
-        { "name": "dlib", "depth": 0 }
+        { "name": "dlib", "depth": 0, "includeAllSymbols": true},
     ]
 }

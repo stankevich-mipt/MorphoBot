@@ -10,11 +10,12 @@ readme = "README.md"
 python = "^3.10"
 opencv-python = "^4.10"
 dlib = "^20.0.0"
+mlflow_registry = { path = "../mlflow_registry", develop = true }
 
-[tool.poetry.extras]
-align = ["opencv-python"]          # alignment/warping utilities
-detect = ["opencv-python", "dlib"] # detection via OpenCV/dlib
-registry = ["mlflow"]              # artifact fetching from registry
+# [tool.poetry.extras]
+# align = ["opencv-python"]          # alignment/warping utilities
+# detect = ["opencv-python", "dlib"] # detection via OpenCV/dlib
+# registry = ["mlflow"]              # artifact fetching from registry
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"
@@ -23,6 +24,7 @@ mypy = "^1.10"
 flake8 = "^7.0.0"
 flake8-import-order = "^0.19.2"
 flake8-docstrings = "^1.7.0"
+python-dotenv = "^1.1.1"
 
 [tool.mypy]
 python_version = "3.10"
@@ -31,6 +33,10 @@ warn_redundant_casts = true
 strict_optional = true
 disallow_untyped_defs = true
 exclude = '(^\.venv/|^build/|^dist/)'
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/vision"]
+python_files = ["test_*.py"]
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]

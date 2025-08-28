@@ -24,13 +24,19 @@ from .tags import (
     Role,
     Stage,
     TagKeys,
+    TagValues,
     Type,
 )
 
-TAG_PROFILES = {
+TAG_PROFILES: dict[str, dict[str | TagKeys, str | TagValues]] = {
     "vision_landmarks_detector": {
         TagKeys.TAG_TYPE: Type.THIRD_PARTY,
         TagKeys.TAG_ROLE: Role.LANDMARK_DETECTOR,
         TagKeys.TAG_STAGE: Stage.DEVELOPMENT
-    }
+    },
+    "alignment_manifest": {
+        TagKeys.TAG_TYPE: Type.DATA,
+        TagKeys.TAG_ROLE: Role.LANDMARK_MANIFEST,
+        TagKeys.TAG_STAGE: Stage.DEVELOPMENT
+    },
 }

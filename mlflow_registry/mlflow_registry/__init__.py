@@ -20,13 +20,17 @@ available to other services.
 """
 
 from .config import RegistryConfig
+from .experiments import ensure_experiment
 from .search import (
     find_and_fetch_artifacts_by_tags,
     get_latest_run_by_tags,
     get_unique_run_by_tags,
     RegistrySearchError
 )
-from .uri_mapping import with_artifact_root
+from .uri_mapping import (
+    build_artifact_s3_uri, with_artifact_root
+)
+
 
 __all__ = [
     "RegistryConfig",
@@ -34,7 +38,9 @@ __all__ = [
     "find_and_fetch_artifacts_by_tags",
     "get_latest_run_by_tags",
     "get_unique_run_by_tags",
+    "build_artifact_s3_uri",
     "with_artifact_root",
+    "ensure_experiment"
 ]
 
 def configure_mlflow() -> None:

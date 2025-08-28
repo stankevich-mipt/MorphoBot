@@ -22,14 +22,17 @@ from typing import Optional, Sequence
 import mlflow.artifacts as mlflow_artifacts
 import mlflow.tracking as mlflow_tracking
 
+from .tags import TagKeys, TagValues
+
 
 @dataclass(frozen=True)
 class RunRecord:
     """Lightweight dataclass representing run metadata."""
     run_id: str
     experiment_id: str
+    artifact_uri: str | None
     start_time: int
-    tags: dict[str, str]
+    tags: dict[TagKeys, TagValues]
     params: dict[str, str]
 
 
@@ -38,7 +41,7 @@ class RegistrySearchError(RuntimeError):
     pass
 
 
-def _build_tag_filter(tags: dict[str, str]) -> str:
+def _build_tag_filter(tags: dict[str | TagKeys, str | TagValues]) -> str:
     """Join multiple tags with AND clause for a single condition."""
     clauses = []
     for k, v in tags.items():
@@ -48,7 +51,7 @@ def _build_tag_filter(tags: dict[str, str]) -> str:
 
 
 def search_runs_by_tags(
-    tags: dict[str, str],
+    tags: dict[str | TagKeys, str | TagValues],
     experiment_names: Optional[Sequence[str]] = None,
     max_results: int = 2000,
     order_by: list[str] = ["attribute.start_time DESC"],
@@ -88,6 +91,7 @@ def search_runs_by_tags(
                 RunRecord(
                     run_id=run.info.run_id,
                     experiment_id=run.info.experiment_id,
+                    artifact_uri=str(run.info.artifact_uri),
                     start_time=run.info.start_time,
                     tags={k: v for k, v in run.data.tags.items()},
                     params={k: v for k, v in run.data.params.items()}
@@ -98,7 +102,7 @@ def search_runs_by_tags(
 
 
 def get_unique_run_by_tags(
-    tags: dict[str, str],
+    tags: dict[str | TagKeys, str | TagValues],
     experiment_names: Optional[Sequence[str]] = None,
 ) -> RunRecord:
     """Return exactly one run matching tags; raise if zero or multiple."""
@@ -117,7 +121,7 @@ def get_unique_run_by_tags(
 
 
 def get_latest_run_by_tags(
-    tags: dict[str, str],
+    tags: dict[str | TagKeys, str | TagValues],
     experiment_names: Optional[Sequence[str]] = None,
 ) -> RunRecord:
     """Return the most recent run matching tags; raise if zero."""
@@ -135,20 +139,23 @@ def get_latest_run_by_tags(
 
 def resolve_artifact_to_local(
     run: RunRecord,
-    artifact_subpath: str,
     dst_dir: Optional[str] = None,
 ) -> Path:
     """Load an artifact produced in run into the local dir."""
-    artifact_uri = f"runs:/{run.run_id}/{artifact_subpath}"
+    if run.artifact_uri is None:
+        raise RegistrySearchError(
+            f"Run {run.run_id} in experiment {run.experiment_id} "
+            "haven't produced any artifacts"
+        )
+
     local = mlflow_artifacts.download_artifacts(
-        artifact_uri=artifact_uri, dst_path=dst_dir
+        artifact_uri=run.artifact_uri, dst_path=dst_dir
     )
     return Path(local)
 
 
 def find_and_fetch_artifacts_by_tags(
-    tags: dict[str, str],
-    artifact_subpath: str,
+    tags: dict[str | TagKeys, str | TagValues],
     experiment_names: Optional[Sequence[str]] = None,
     unique: bool = True,
     dst_dir: Optional[str] = None
@@ -165,4 +172,4 @@ def find_and_fetch_artifacts_by_tags(
     else:
         run = get_latest_run_by_tags(tags=tags, experiment_names=experiment_names)
 
-    return resolve_artifact_to_local(run, artifact_subpath, dst_dir=dst_dir)
+    return resolve_artifact_to_local(run, dst_dir=dst_dir)
