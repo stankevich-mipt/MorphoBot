@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 
-"""Package tests.
+"""Package data.
 
 This is the package initialization file. Currently, it only contains the
 license header and does not expose any public symbols or initialization code.

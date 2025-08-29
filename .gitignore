@@ -213,6 +213,5 @@ mlflow_registry/registry_data/minio_storage/
 # temporarily ignore notebooks subfolder in training directory
 training/gender_id/notebooks/
 
-# ignore everything in dataset directories except the download scripts
-data/*
-!data/gender_datasets/utkfaces/download_utkfaces.py
+# ignore the dataset files
+datasets/

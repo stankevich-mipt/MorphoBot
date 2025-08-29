@@ -38,13 +38,15 @@ def test_type_enum_members():
     """Type enum has expected artifact group types."""
     assert (
         set(member.value for member in tags.Type) ==
-        {"third_party", "model", "template"}
+        {"third_party", "model", "template", "data", "misc"}
     )
 
 def test_role_enum_members():
     """Role enum members have correct artifact roles."""
     assert tags.Role.LANDMARK_DETECTOR.value == "landmark_detector"
     assert tags.Role.ALIGNMENT_TEMPLATE.value == "alignment_template"
+    assert tags.Role.LANDMARK_MANIFEST.value == "landmark_manifest"
+    assert tags.Role.PREVIEW.value == "functionality_preview"
 
 
 def test_stage_enum_members():

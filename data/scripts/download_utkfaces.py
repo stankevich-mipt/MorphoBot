@@ -13,15 +13,16 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-"""
-Download the UTKFace dataset archive and verify its integrity via MD5.
-"""
 
+"""Download the UTKFace dataset archive and verify its integrity via MD5."""
+
+import argparse
+from contextlib import closing
 import hashlib
 import os
+from pathlib import Path
 import sys
 import time
-from contextlib import closing
 from typing import Optional
 
 import requests
@@ -48,16 +49,13 @@ FILENAMES = [
 ]
 
 
-DEST_DIR = '.'
-
-
 class DownloadError(Exception):
+    """Custom exception within the script scope."""
     pass
 
 
 def md5_file(path: str, chunk_size: int = 1024 * 1024) -> str:
     """Compute MD5 checksum of a file in chunks."""
-
     md5 = hashlib.md5()
     with open(path, "rb") as f:
         while True:
@@ -71,7 +69,6 @@ def md5_file(path: str, chunk_size: int = 1024 * 1024) -> str:
 
 def human_size(n: Optional[int]) -> str:
     """Convert size in bytes into human-readable format."""
-
     if n is None:
         return "unknown"
 
@@ -85,8 +82,7 @@ def human_size(n: Optional[int]) -> str:
 
 
 def get_remote_size_and_resume_support(url: str, timeout: int = 20):
-    """check the content length and range request support in mirror"""
-
+    """Check the content length and range request support in mirror."""
     try:
         # First, try the HEAD request
         resp = requests.head(url, allow_redirects=True, timeout=timeout)
@@ -117,7 +113,6 @@ def download_with_resume(
     chunk_size: int = 1024 * 1024
 ) -> None:
     """Download file with resume capability when possible."""
-
     temp_path = dest_path + ".part"
     existing = os.path.getsize(temp_path) if os.path.exists(temp_path) else 0
 
@@ -179,21 +174,13 @@ def download_with_resume(
     sys.stderr.write("\nDownload complete.\n")
 
 
-def ensure_dir(path: str):
-    if path and not os.path.isdir(path):
-        os.makedirs(path, exist_ok=True)
-
-
-def main():
-
-    dest_dir = DEST_DIR
-    ensure_dir(dest_dir)
+def main(dest_dir: Path):  # noqa
 
     for url, filename, expected_md5 in zip(
         DATASET_URLS, FILENAMES, EXPECTED_MD5S
     ):
 
-        dest_path = os.path.join(dest_dir, filename)
+        dest_path = str(dest_dir / filename)
 
         try:
             remote_size, resume_supported = (
@@ -248,4 +235,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dest-dir", type=str, required=True,
+        help="output directory for dataset files",
+    )
+
+    args = parser.parse_args()
+    dest_dir = Path(args.dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    main(dest_dir)

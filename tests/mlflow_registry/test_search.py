@@ -36,6 +36,7 @@ import pytest
 class MockInfo:  # noqa
     run_id: str
     experiment_id: str
+    artifact_uri: str
     start_time: int
 
 
@@ -47,8 +48,12 @@ class MockData:  # noqa
 
 class MockRun:
     """Imitates MLFlow run object data access structure."""
-    def __init__(self, run_id, experiment_id, start_time, tags, params):  # noqa
-        self.info = MockInfo(run_id, experiment_id, start_time)
+    def __init__(  # noqa
+        self, run_id, experiment_id, start_time,
+        artifact_uri, tags, params
+    ):
+        self.info = MockInfo(
+            run_id, experiment_id, artifact_uri, start_time)
         self.data = MockData(tags, params)
 
 
@@ -57,6 +62,7 @@ SAMPLE_RUNS = [
     MockRun(
         run_id="run1",
         experiment_id="exp1",
+        artifact_uri="s3://bucket/model/checkpoint.pt",
         start_time=1000,
         tags={"tagA": "val1", "tagB": "val2"},
         params={"param1": "x"}
@@ -64,13 +70,23 @@ SAMPLE_RUNS = [
     MockRun(
         run_id="run2",
         experiment_id="exp1",
+        artifact_uri="s3://bucket/model/checkpoint.pt",
         start_time=2000,
         tags={"tagA": "valX", "tagB": "val2"},
         params={"param1": "y"}
     ),
     MockRun(
+        run_id="run1",
+        experiment_id="exp2",
+        artifact_uri=None,
+        start_time=4000,
+        tags={"tagC": "val3"},
+        params={"param1": "x"}
+    ),
+    MockRun(
         run_id="run3",
         experiment_id="exp2",
+        artifact_uri="s3://bucket/model/checkpoint.pt",
         start_time=3000,
         tags={"tagA": "val1", "tagC": "val3"},
         params={"param1": "z"}
@@ -207,7 +223,6 @@ def test_find_and_fetch_artifacts_by_tags(
 
         result = search.find_and_fetch_artifacts_by_tags(
             tags={"tagA": "valX"},
-            artifact_subpath="artifact.png",
             experiment_names=["exp1"],
             unique=unique_flag,
             dst_dir="/tmp"
@@ -215,3 +230,16 @@ def test_find_and_fetch_artifacts_by_tags(
 
         assert isinstance(result, Path)
         assert result == path_mock
+
+
+def test_find_and_fetch_artifacts_by_tags_raises_on_missing_artifact(
+    mlflow_client_mock
+):
+    """Returns error if run exists, but artifacts are missing."""
+    with pytest.raises(RegistrySearchError):
+        search.find_and_fetch_artifacts_by_tags(
+            tags={"tagC": "val3"},
+            experiment_names=["exp3"],
+            unique=True,
+            dst_dir="/tmp"
+        )

@@ -39,4 +39,9 @@ TAG_PROFILES: dict[str, dict[str | TagKeys, str | TagValues]] = {
         TagKeys.TAG_ROLE: Role.LANDMARK_MANIFEST,
         TagKeys.TAG_STAGE: Stage.DEVELOPMENT
     },
+    "alignment_templates": {
+        TagKeys.TAG_TYPE: Type.TEMPLATE,
+        TagKeys.TAG_ROLE: Role.ALIGNMENT_TEMPLATE,
+        TagKeys.TAG_STAGE: Stage.DEVELOPMENT
+    }
 }
