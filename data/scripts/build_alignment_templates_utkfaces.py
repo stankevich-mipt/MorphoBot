@@ -17,7 +17,7 @@
 
 Consumes a manifest.jsonl file created by the
 build_utkfaces_manifest_dlib_detector.py script to
-Build per-class (male/female) facial alignment
+build per-class (male/female) facial alignment
 templates from a subset of UTKFaces.
 
 Input:
@@ -43,7 +43,6 @@ Usage:
 
     poetry run python training/gender_id/scripts/build_alignment_templates.py \
     --manifest /data/gender_datasets/utkfaces/manifest.jsonl \
-    --out-dir /data/gender_datasets/utkfaces/templates \
     --target-size 256
     --experiment-name gender-template-build
 """
@@ -53,6 +52,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Optional
 
 import cv2
@@ -260,12 +260,8 @@ def parse_arguments():
         help="Path to JSONL manifest with landmarks and labels"
     )
     parser.add_argument(
-        "--out-dir", type=str, required=True,
-        help="Output directory for preview and templates"
-    )
-    parser.add_argument(
         "--experiment-name", default="build-align-templates-UTKFaces",
-        help="MLFlow experiment name prefix"
+        help="MLFlow experiment name"
     )
     parser.add_argument("--target-size", type=int, default=256)
     parser.add_argument("--male-label", type=str, default="male")
@@ -282,9 +278,6 @@ def main():  # noqa
 
     args = parse_arguments()
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     configure_mlflow()
     artifact_location = build_artifact_s3_uri(args.experiment_name)
     experiment_id = ensure_experiment(
@@ -296,36 +289,40 @@ def main():  # noqa
         args.female_label, args.limit_per_class
     )
 
-    build_and_save_template(
-        male_pts, args.target_size, args.male_label, out_dir
-    )
-    build_and_save_template(
-        female_pts, args.target_size, args.female_label, out_dir
-    )
+    with tempfile.TemporaryDirectory() as tmp:
 
-    with mlflow.start_run(experiment_id=experiment_id):
+        out_dir = Path(tmp)
 
-        mlflow.log_params({
-            "manifest": str(Path(args.manifest).name),
-            "target_size": args.target_size,
-            "limit_per_class": args.limit_per_class,
-            "male_labels": args.male_label,
-            "female_labels": args.female_label,
-        })
+        build_and_save_template(
+            male_pts, args.target_size, args.male_label, out_dir
+        )
+        build_and_save_template(
+            female_pts, args.target_size, args.female_label, out_dir
+        )
 
-        mlflow.set_tags(TAG_PROFILES["alignment_templates"])
-        mlflow.set_tags({
-            "version": "v1",
-            "description":
-                "facial alignment templates "
-                "created from subset of UTKFaces"
-        })
+        with mlflow.start_run(experiment_id=experiment_id):
 
-        for lbl in {args.male_label, args.female_label}:
-            if (p := out_dir / f"template_{lbl}.json").exists():
-                mlflow.log_artifact(str(p), artifact_path=f"template_{lbl}")
-            if (j := out_dir / f"template_{lbl}.png").exists():
-                mlflow.log_artifact(str(j), artifact_path=f"template_{lbl}")
+            mlflow.log_params({
+                "manifest": str(Path(args.manifest).name),
+                "target_size": args.target_size,
+                "limit_per_class": args.limit_per_class,
+                "male_labels": args.male_label,
+                "female_labels": args.female_label,
+            })
+
+            mlflow.set_tags(TAG_PROFILES["alignment_templates"])
+            mlflow.set_tags({
+                "version": "v1",
+                "description":
+                    "facial alignment templates "
+                    "created from subset of UTKFaces"
+            })
+
+            for lbl in {args.male_label, args.female_label}:
+                if (p := out_dir / f"template_{lbl}.json").exists():
+                    mlflow.log_artifact(str(p), artifact_path=f"template_{lbl}")
+                if (j := out_dir / f"template_{lbl}.png").exists():
+                    mlflow.log_artifact(str(j), artifact_path=f"template_{lbl}")
 
 
 if __name__ == "__main__":
