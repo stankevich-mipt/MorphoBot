@@ -18,3 +18,32 @@
 This is the package initialization file. Currently, it only contains the
 license header and does not expose any public symbols or initialization code.
 """
+
+from pathlib import Path
+from typing import Any, Type, Union
+
+from .utkfaces_aligned import UTKFacesDataset
+
+
+SupportedDataset = Union[
+    UTKFacesDataset
+]
+
+
+_DATASET_REGISTRY: dict[str, Type[SupportedDataset]] = {
+    "utkfaces": UTKFacesDataset,
+}
+
+
+def _get_dataset_class(name: str) -> Type[SupportedDataset]:
+    """Retrieve dataset class by name.
+
+    Raises:
+        KeyError if name is not registered.
+    """
+    key = name.lower()
+    if key not in _DATASET_REGISTRY:
+        raise KeyError(
+            f"Dataset class for '{name}' not found in registry."
+        )
+    return _DATASET_REGISTRY[key]

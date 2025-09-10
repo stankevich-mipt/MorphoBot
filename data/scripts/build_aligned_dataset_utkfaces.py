@@ -368,11 +368,15 @@ def main():  # noqa
                 "ok_count": ok_count
             })
 
+            mlflow.set_tags(TAG_PROFILES["dataset"])
+
             mlflow.set_tags({
                 "version": "v1",
-                "description":
+                "description": (
                     "Building monoclass subsets "
                     "of aligned male/female faces from UTK"
+                ),
+                "name": "utkfaces",
             })
 
             mlflow.log_artifact(
