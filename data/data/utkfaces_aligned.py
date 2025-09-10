@@ -185,26 +185,3 @@ class UTKFacesDataset(ConfigurableDataset, SizedDataset):
             image_paths_female=image_paths_female,
             aug=aug
         )
-
-
-if __name__ == '__main__':
-
-    import sys
-    import logging
-    logging.basicConfig(
-        level=logging.INFO, format="[%(levelname)s] %(message)s")
-
-    img_folder = Path(sys.argv[1])
-
-    try:
-        dataset = UTKFacesImageFolder(image_paths=find_images(img_folder))
-        if len(dataset) == 0:
-            logging.warning("Dataset is empty!")
-        else:
-            logging.info(f"Dataset contains {len(dataset)} images")
-            test_image = dataset[0]
-            logging.info("✅ Smoke test passed")
-            sys.exit(0)
-    except Exception:
-        logging.exception("Smoke test failed")
-        sys.exit(1)
