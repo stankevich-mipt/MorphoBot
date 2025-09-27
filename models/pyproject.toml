@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "models"
+version = "0.1.0"
+description = "Deep learning models and related utilities."
+authors = ["Stankevich Andrey <stankevich.as@phystech.edu>"]
+license = "Apache 2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = {version = "^2.1.0", source = "pytorch-gpu"}
+torchvision = {version = "^0.16.0", source = "pytorch-gpu"}
+torchaudio = {version = "^2.1.0", source = "pytorch-gpu"}
+configs = { path = "../configs", develop = true }
+mlflow_registry = { path = "../mlflow_registry", develop = true }
+vision = { path = "../vision", develop = true }
+tqdm = "^4.67.1"
+pyserde = "^0.25.1"
+pytest-mock = "^3.15.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+pytest-cov = "^5.0"
+mypy = "^1.10"
+flake8 = "^7.0.0"
+flake8-import-order = "^0.19.2"
+flake8-docstrings = "^1.7.0"
+
+# PyTorch GPU source
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_optional = true
+disallow_untyped_defs = true
+exclude = '(^\.venv/|^build/|^dist/)'
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/models"]
+python_files = ["test_*.py"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
