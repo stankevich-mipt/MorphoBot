@@ -34,7 +34,6 @@ class TagKeys(strEnum):
     TAG_STAGE = "stage"
     TAG_VERSION = "version"
     TAG_MODEL_FAMILY = "model_family"
-    TAG_DATASET = "dataset"
     TAG_ARTIFACT_ROLE = "artifact_role"
     TAG_TEMPLATE_KIND = "template_kind"
 
@@ -43,7 +42,8 @@ class Type(strEnum):
     THIRD_PARTY = "third_party"
     MODEL = "model"
     TEMPLATE = "template"
-    DATA = "data"
+    METADATA = "metadata"
+    DATASET = "dataset"
     MISC = "misc"
 
 class Role(strEnum):
@@ -51,7 +51,9 @@ class Role(strEnum):
     LANDMARK_DETECTOR = "landmark_detector"
     ALIGNMENT_TEMPLATE = "alignment_template"
     LANDMARK_MANIFEST = "landmark_manifest"
+    ALIGNED_DATASET = "aligned_dataset"
     PREVIEW = "functionality_preview"
+    CLASSIFICATION_MODEL = "classification_model"
 
 class Stage(strEnum):
     """Project lifecycle stages."""
@@ -59,5 +61,9 @@ class Stage(strEnum):
     STAGING = "staging"
     PRODUCTION = "production"
 
+class ModelFamily(strEnum):
+    """Network family."""
+    RESNET_CLASSIFIERS = "resnet_classifiers"
 
-TagValues = Union[Type, Role, Stage]
+
+TagValues = Union[Type, Role, Stage, ModelFamily]

@@ -21,6 +21,7 @@ that uniquely identify artifacts belonging to different services.
 """
 
 from .tags import (
+    ModelFamily,
     Role,
     Stage,
     TagKeys,
@@ -35,13 +36,24 @@ TAG_PROFILES: dict[str, dict[str | TagKeys, str | TagValues]] = {
         TagKeys.TAG_STAGE: Stage.DEVELOPMENT
     },
     "alignment_manifest": {
-        TagKeys.TAG_TYPE: Type.DATA,
+        TagKeys.TAG_TYPE: Type.METADATA,
         TagKeys.TAG_ROLE: Role.LANDMARK_MANIFEST,
         TagKeys.TAG_STAGE: Stage.DEVELOPMENT
     },
     "alignment_templates": {
         TagKeys.TAG_TYPE: Type.TEMPLATE,
         TagKeys.TAG_ROLE: Role.ALIGNMENT_TEMPLATE,
+        TagKeys.TAG_STAGE: Stage.DEVELOPMENT
+    },
+    "dataset": {
+        TagKeys.TAG_TYPE: Type.DATASET,
+        TagKeys.TAG_ROLE: Role.ALIGNED_DATASET,
+        TagKeys.TAG_STAGE: Stage.DEVELOPMENT
+    },
+    "routing_model": {
+        TagKeys.TAG_TYPE: Type.MODEL,
+        TagKeys.TAG_ROLE: Role.CLASSIFICATION_MODEL,
+        TagKeys.TAG_MODEL_FAMILY: ModelFamily.RESNET_CLASSIFIERS,
         TagKeys.TAG_STAGE: Stage.DEVELOPMENT
     }
 }

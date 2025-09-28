@@ -32,7 +32,7 @@ class RunRecord:
     experiment_id: str
     artifact_uri: str | None
     start_time: int
-    tags: dict[TagKeys, TagValues]
+    tags: dict[str | TagKeys, str | TagValues]
     params: dict[str, str]
 
 
