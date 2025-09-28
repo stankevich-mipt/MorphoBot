@@ -32,7 +32,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-import albumentations as A
 import numpy as np
 import numpy.typing as npt
 from vision.utils import read_image_rgb
@@ -173,7 +172,7 @@ class UTKFacesDataset(ConfigurableDataset, SizedDataset):
 
         if not root_female.exists():
             raise FileNotFoundError(
-                f"Root directory does not exist: {root_male}"
+                f"Root directory does not exist: {root_female}"
             )
 
         image_paths_male = find_images(root_male)

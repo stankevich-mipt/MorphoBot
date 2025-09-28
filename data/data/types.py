@@ -15,7 +15,6 @@
 
 """Utilities for correct type hinting of image transformations."""
 
-from pathlib import Path
 from typing import Any, Protocol, Type, TypedDict, TypeVar
 
 import numpy as np
@@ -47,8 +46,8 @@ class SizedDataset(Dataset):
 
     Notes:
         - despite the presence of __len__ method is required
-        for well-behavedness of Dataset, it does not comply
-        to the Sized ABC in Pytorch, hence calling len(Dataset)
+        for well-behavedness of PyTorch Dataset, it does not comply
+        to the Sized ABC in, hence calling len(Dataset)
         may cause type check warnings. Provided code is a quick fix
         for the issue.
     """

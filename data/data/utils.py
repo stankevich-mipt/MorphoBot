@@ -16,6 +16,7 @@
 """Common utilites for all used datasets."""
 
 from pathlib import Path
+from typing import Optional, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -23,6 +24,14 @@ from .types import SizedDataset
 
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
+
+
+@runtime_checkable
+class Shuffler(Protocol):
+    """Framework-agnostic RNG-dependent protocol to reimplement."""
+    def shuffle(self, x: list[int]) -> None:
+        """Shuffle list of int in-place."""
+        ...
 
 
 def find_images(root: Path) -> list[Path]:
@@ -33,13 +42,19 @@ def find_images(root: Path) -> list[Path]:
 def get_train_test_split_indices(
     dataset: SizedDataset,
     split_ratio: float,
-    shuffle: bool = False
+    shuffle: bool = False,
+    shuffler: Optional[Shuffler] = None,
 ) -> tuple[list, list]:
     """Generate train/test indices split from dataset, shuffle if needed."""
     total_elements = len(dataset)
     ids = list(range(total_elements))
-    if shuffle:
-        np.random.shuffle(ids)
+    if shuffle and total_elements > 0:
+        if shuffler is not None:
+            shuffler.shuffle(ids)
+        else:
+            import random
+            random.shuffle(ids)
+
     split = int(np.floor(split_ratio * total_elements))
 
     return ids[:split], ids[split:]
