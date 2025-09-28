@@ -1,0 +1,51 @@
+#    Copyright 2025, Stankevich Andrey, stankevich.as@phystech.edu
+
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+
+#        http://www.apache.org/licenses/LICENSE-2.0
+
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+
+"""Model parameters for router+UTKFaces workflow."""
+
+from __future__ import annotations
+
+
+from dataclasses import dataclass
+from enum import auto, Enum
+from typing import Optional
+
+
+class BackboneName(str, Enum):
+    """All possible values for resnet backbones."""
+    resnet18 = auto()
+    resnet34 = auto()
+    resnet50 = auto()
+    resnet101 = auto()
+    resnet152 = auto()
+
+    @classmethod
+    def get(cls, key: str, default: BackboneName) -> BackboneName:
+        """Return cls member correspoding to str key, if one exists."""
+        if key in cls._value2member_map_:
+            return cls._value2member_map_[key]  # type: ignore
+        else:
+            return default
+
+
+@dataclass
+class RouterConfig:
+    """Nesessary fields to determine model state at init."""
+    backbone: BackboneName = BackboneName.resnet18
+    num_classes: int = 2
+    weights: Optional[str | bool] = "IMAGENET1K_V1"
+    dropout: Optional[float] = None
+    freeze_backbone: bool = False
+    backbone_lr_mult: float = 1e-2
