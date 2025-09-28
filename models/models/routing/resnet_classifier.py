@@ -25,10 +25,6 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(levelname)s] %(message)s'
-)
 
 logger = logging.getLogger(__name__)
 
