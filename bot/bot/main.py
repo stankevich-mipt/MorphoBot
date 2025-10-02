@@ -63,8 +63,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from bot.src.handlers import help_cmd, photo_received, start_cmd
-from bot.src.settings import settings
+from .handlers import help_cmd, classify_photo, start_cmd
+from .settings import settings
 
 from fastapi import FastAPI, HTTPException, Header, Request
 
@@ -91,7 +91,7 @@ tg_app: Application = (
 tg_app.add_handler(CommandHandler("start", start_cmd))
 tg_app.add_handler(CommandHandler("help", help_cmd))
 tg_app.add_handler(
-    MessageHandler(filters.PHOTO & ~filters.COMMAND, photo_received)
+    MessageHandler(filters.PHOTO & ~filters.COMMAND, classify_photo)
 )
 
 
@@ -121,7 +121,6 @@ async def run_polling():
     await tg_app.start()
     logger.info("Polling started ➜ Ctrl-C to stop")
     await tg_app.updater.start_polling()
-    await tg_app.updater.idle()
 
 
 # ---------- WEBHOOK MODE ---------- #
