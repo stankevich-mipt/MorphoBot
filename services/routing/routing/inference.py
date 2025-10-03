@@ -14,6 +14,7 @@
 
 """Inference logic for routing microservice."""
 
+from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
@@ -58,6 +59,15 @@ MLFLOW_CLASSIFIER_NAME = os.getenv(
     "MLFLOW_CLASSIFIER_NAME",
     "resnet_backbone_classifier"
 )
+
+
+@dataclass
+class ClassificationResult:
+    """Schema for ImageProcessor output signature."""
+    predicted_class: str
+    confidence: float
+    bbox: tuple[int, int, int, int]
+    status: str = "success"
 
 
 class InferenceError(Exception):
@@ -249,7 +259,7 @@ class ImageProcessor:
         self,
         image_bytes: bytes,
         label_map: Optional[dict[int, str]] = None
-    ) -> dict[Any, Any]:
+    ) -> ClassificationResult:
         """Complete pipeline: decode -> detect -> align -> classify.
 
         Args:
@@ -289,12 +299,11 @@ class ImageProcessor:
             predicted_idx, f"class_{predicted_idx}"
         )
 
-        return {
-            "predicted_class": predicted_label,
-            "confidence": confidence,
-            "bbox": rect_to_xyxy(bbox),
-            "status": "success"
-        }
+        return ClassificationResult(
+            predicted_class=predicted_label,
+            confidence=confidence,
+            bbox=rect_to_xyxy(bbox)
+        )
 
 def create_image_processor(**kwargs) -> ImageProcessor:
     """Factory function to create ImageProcessor with optional configuration."""

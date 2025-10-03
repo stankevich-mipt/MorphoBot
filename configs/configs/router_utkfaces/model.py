@@ -43,7 +43,7 @@ class BackboneName(str, Enum):
 @dataclass
 class RouterConfig:
     """Nesessary fields to determine model state at init."""
-    model_name: str = "ResNet backbone-based classifier"
+    model_name: str = "resnet_backbone_classifier"
     backbone: BackboneName = BackboneName.resnet18
     num_classes: int = 2
     weights: Optional[str | bool] = "IMAGENET1K_V1"
