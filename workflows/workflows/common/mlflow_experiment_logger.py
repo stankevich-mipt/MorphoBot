@@ -16,14 +16,16 @@
 
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from functools import partial
 import json
 import logging
 from pathlib import Path
 import subprocess
-from typing import Any, Optional, Union
+from typing import Any, Optional, Sequence, Union
 
 import mlflow
 from mlflow.models import infer_signature
+from mlflow.models.signature import ModelSignature
 from mlflow.pytorch import log_model as mlflow_torch_log_model
 from mlflow_registry import (
     build_artifact_s3_uri,
@@ -31,13 +33,30 @@ from mlflow_registry import (
     ensure_experiment,
 )
 from mlflow_registry.tags import TagKeys, TagValues
+import numpy as np
 import torch
 
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format='[%(levelname)s] %(message)s'
-# )
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+TensorLike = Union[torch.Tensor, np.ndarray]
+TensorOrTensors = Union[torch.Tensor, Sequence[torch.Tensor], tuple[torch.Tensor, ...]]
+
+
+def to_numpy(
+    x: TensorOrTensors, copy: bool = False
+) -> np.ndarray | list[np.ndarray] | tuple[np.ndarray, ...]:
+    """Convert either single tensor or a sequence to numpy."""
+    def _one(t: torch.Tensor) -> np.ndarray:
+        arr = t.detach().cpu().numpy()
+        if copy:
+            arr = arr.copy()
+        return arr
+
+    if isinstance(x, torch.Tensor):
+        return _one(x)
+    if isinstance(x, tuple):
+        return tuple(_one(t) for t in x)
+    return [_one(t) for t in x]
 
 
 class ExperimentLogger:
@@ -162,33 +181,41 @@ class ExperimentLogger:
         self,
         model: torch.nn.Module,
         model_name: str,
-        input_example: Optional[torch.Tensor] = None,
-    ):
+        signature: Optional[ModelSignature] = None,
+        input_example: Optional[TensorOrTensors] = None,
+    ) -> None:
         """Log Pytorch model using dedicated MLFlow API."""
         pip_requirements = self.get_poetry_requirements()
 
-        signature = None
-        if input_example is not None:
-            with torch.inference_mode():
-                model_output = model(input_example)
-                signature = infer_signature(
-                    input_example.cpu().numpy(),
-                    model_output.cpu().numpy()
+        log_cases = partial(
+            mlflow_torch_log_model,
+            pytorch_model=model,
+            registered_model_name=model_name,
+            artifact_path=model_name,
+            pip_requirements=pip_requirements,
+        )
+
+        if signature is not None:
+            log_cases(signature=signature)
+
+        elif input_example is not None:
+
+            try:
+                with torch.inference_mode():
+                    model_output = model(input_example)
+                    signature = infer_signature(
+                        to_numpy(input_example),
+                        model_output.cpu().numpy()
+                    )
+
+                log_cases(signature=signature, input_example=to_numpy(input_example))
+
+            except Exception as e:
+                logging.warning(
+                    f"Got exception while trying to forward with {input_example}:{e}"
                 )
 
-        if input_example is not None and signature is not None:
-            mlflow_torch_log_model(
-                pytorch_model=model,
-                registered_model_name=model_name,
-                artifact_path=model_name,
-                pip_requirements=pip_requirements,
-                input_example=input_example.cpu().numpy(),
-                signature=signature
-            )
         else:
-            mlflow_torch_log_model(
-                pytorch_model=model,
-                registered_model_name=model_name,
-                artifact_path=model_name,
-                pip_requirements=pip_requirements,
-            )
+
+            logger.info("Couldn't determine model's signature; logging without it")
+            log_cases()
