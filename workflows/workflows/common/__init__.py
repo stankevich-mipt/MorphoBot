@@ -15,6 +15,11 @@
 
 """Package workflows/common.
 
-This is the package initialization file. Currently, it only contains the
-license header and does not expose any public symbols or initialization code.
+Initialization file exposes the workflows.common package API.
 """
+
+from .mlflow_experiment_logger import ExperimentLogger
+
+__all__ = [
+    "ExperimentLogger"
+]

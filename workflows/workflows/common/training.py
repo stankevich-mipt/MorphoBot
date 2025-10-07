@@ -15,11 +15,9 @@
 
 """Reusable training utilities across all model types."""
 
-import math
 import os
-from pathlib import Path
 import random
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -72,3 +70,16 @@ def set_global_seed(seed: int = 42):
         torch.use_deterministic_algorithms(True)
     except Exception:
         pass  # Fallback for older versions
+
+
+def get_numpy_rng(seed: int) -> np.random.Generator:
+    """Create numpy random number generator initialized with seed."""
+    rng = np.random.default_rng(seed)
+    return rng
+
+
+def get_torch_rng(seed: int) -> torch.Generator:
+    """Create a torch random number generator initialized with seed."""
+    rng = torch.Generator()
+    rng.manual_seed(seed)
+    return rng
