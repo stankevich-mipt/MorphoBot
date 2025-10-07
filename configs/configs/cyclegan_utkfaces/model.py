@@ -38,7 +38,7 @@ class ResNetGeneratorConfig:
     ngf: int = 64
     n_residual_blocks: int = 9
     dropout: Optional[float] = None
-    padding_type: Literal["reflect", "replicate", "zero"] = "reflect"
+    padding_mode: Literal["reflect", "replicate", "zeros"] = "zeros"
 
 
 @dataclass

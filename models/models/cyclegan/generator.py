@@ -28,7 +28,7 @@ class ResidualBlock(nn.Module):
         self,
         dim: int,
         dropout: Optional[float] = None,
-        padding_type: str = "reflect"
+        padding_mode: str = "reflect"
     ):
         """Initialize by assembling layers into nn.Sequential."""
         super().__init__()
@@ -39,12 +39,12 @@ class ResidualBlock(nn.Module):
 
         layers = []
 
-        layers += self._get_norm_conv_block(dim, dim, 3, padding_type)
+        layers += self._get_norm_conv_block(dim, dim, 3, padding_mode)
         if self.dropout:
             layers += [nn.Dropout(self.dropout)]
 
         layers += self._get_conv_block(
-            dim, dim, 3, padding_type, use_activation=False)
+            dim, dim, 3, padding_mode, use_activation=False)
 
         self.conv_block = nn.Sequential(*layers)
 
@@ -53,11 +53,11 @@ class ResidualBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        padding_type: str
+        padding_mode: str
     ) -> list[nn.Module]:
         return self._get_conv_block(
             in_channels, out_channels,
-            kernel_size, padding_type,
+            kernel_size, padding_mode=padding_mode,
             use_activation=True, use_norm=True
         )
 
@@ -66,7 +66,7 @@ class ResidualBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        padding_type: str,
+        padding_mode: str,
         use_norm: bool = True,
         use_activation: bool = True
     ) -> list[nn.Module]:
@@ -74,22 +74,22 @@ class ResidualBlock(nn.Module):
         layers = []
         pad = kernel_size // 2
 
-        if padding_type == "reflect":
+        if padding_mode == "reflect":
             layers += [nn.ReflectionPad2d(pad)]
             conv_padding = 0
-        elif padding_type == "replicate":
+        elif padding_mode == "replicate":
             layers += [nn.ReplicationPad2d(pad)]
             conv_padding = 0
-        elif padding_type == "zero":
+        elif padding_mode == "zeros":
             conv_padding = pad
         else:
             raise NotImplementedError(
-                f"Padding type {padding_type} is not supported."
+                f"Padding mode {padding_mode} is not supported."
             )
 
         layers += [nn.Conv2d(
             in_channels, out_channels, kernel_size,
-            padding=conv_padding, bias=not use_norm
+            padding=conv_padding, padding_mode=padding_mode, bias=not use_norm
         )]
 
         if use_norm:
@@ -115,8 +115,12 @@ def build_resnet_generator(
     ngf = config.ngf
 
     model = [
-        nn.ReflectionPad2d(3),
-        nn.Conv2d(input_nc, input_nc, kernel_size=7, padding=0, bias=False),
+        nn.ZeroPad2d(3),
+        nn.Conv2d(
+            input_nc, ngf, kernel_size=7,
+            padding=0, padding_mode=config.padding_mode,
+            bias=False
+        ),
         nn.InstanceNorm2d(config.ngf),
         nn.ReLU(inplace=True)
     ]
@@ -124,8 +128,12 @@ def build_resnet_generator(
     mult = 1
     for _ in range(2):
         model += [
-            nn.Conv2d(mult * ngf, mult * ngf * 2,
-                      kernel_size=3, stride=2, padding=1, bias=False),
+            nn.Conv2d(
+                mult * ngf, mult * ngf * 2,
+                kernel_size=3, stride=2, padding=1,
+                padding_mode=config.padding_mode,
+                bias=False
+            ),
             nn.InstanceNorm2d(ngf),
             nn.ReLU(inplace=True)
         ]
@@ -134,21 +142,24 @@ def build_resnet_generator(
     for _ in range(config.n_residual_blocks):
         model += [ResidualBlock(
             ngf * mult, dropout=config.dropout,
-            padding_type=config.padding_type
+            padding_mode=config.padding_mode
         )]
 
     for _ in range(2):
         model += [
             nn.ConvTranspose2d(
                 mult * ngf, (mult // 2) * ngf,
-                kernel_size=3, stride=2, padding=1, output_padding=1, bias=False
+                kernel_size=3, stride=2, padding=1,
+                output_padding=1, bias=False,
+                padding_mode=config.padding_mode
             ),
             nn.InstanceNorm2d((mult // 2) * ngf),
             nn.ReLU(inplace=True)
         ]
+        mult //= 2
 
     model += [
-        nn.ReflectionPad2d(3),
+        nn.ZeroPad2d(3),
         nn.Conv2d(ngf, config.output_nc, kernel_size=7, padding=0),
     ]
 
@@ -168,8 +179,9 @@ class ResNetGenerator(nn.Module):
         self, cfg: ResNetGeneratorConfig
     ):
         """Initialize by building with factory function."""
+        super().__init__()
         self.cfg: ResNetGeneratorConfig = cfg
-        self.model: nn.Module = build_resnet_generator(cfg)
+        self.model = build_resnet_generator(cfg)
         self.apply(self._init_weights)
 
     def _init_weights(self, m):

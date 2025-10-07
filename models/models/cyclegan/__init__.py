@@ -22,7 +22,9 @@ Index:
 """
 
 from .generator import ResNetGenerator
+from .discriminator import PatchDiscriminator
 
 __all__ = [
-    "ResNetGenerator"
+    "PatchDiscriminator"
+    "ResNetGenerator",
 ]

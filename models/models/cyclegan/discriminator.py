@@ -106,6 +106,7 @@ class PatchDiscriminator(nn.Module):
     """PatchGAN with 70x70 receptive field."""
     def __init__(self, cfg: PatchDiscriminatorConfig):
         """Initialize with config dataclass."""
+        super().__init__()
         self.cfg = cfg
         self.model = build_patch_discriminator(cfg)
 
