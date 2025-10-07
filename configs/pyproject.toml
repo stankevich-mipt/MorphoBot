@@ -10,6 +10,7 @@ readme = "README.md"
 python = "^3.10"
 dacite = "^1.9.2"
 pyserde = "^0.25.1"
+mlflow_registry = { path = "../mlflow_registry", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"
