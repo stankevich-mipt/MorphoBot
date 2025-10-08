@@ -18,9 +18,8 @@
 Handles saving and loading of complete training state including:
 - 2 generators
 - 2 discriminator
-- 4 optimizers (gen_A2B, gen_B2A, disc_A, disc_B)
-- 4 AMP scalers (gen_A2B, gen_B2A, disc_A, disc_B)
-- 2 schedulers (gen_schedulers, disc_schedulers)
+- 3 optimizers (gen, disc_A, disc_B)
+- 3 schedulers (gen_scheduler, disc_schedulers)
 - Training metadata (epoch, step, losses, metrics)
 
 Supports both full checkpoint and inference-only model exports
@@ -35,7 +34,7 @@ from typing import Any, Optional
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import LRScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +66,9 @@ class CycleGANModels:
     optimizer_D_B: Optimizer
 
     # Schedulers
-    scheduler_G: Optional[_LRScheduler] = None
-    scheduler_D: Optional[_LRScheduler] = None
+    scheduler_G: Optional[LRScheduler] = None
+    scheduler_D_A: Optional[LRScheduler] = None
+    scheduler_D_B: Optional[LRScheduler] = None
 
 
 @dataclass
@@ -172,8 +172,11 @@ class CycleGANCheckpointManager:
             "scheduler_G_state_dict": (
                 models.scheduler_G.state_dict() if models.scheduler_G else None
             ),
-            "scheduler_D_state_dict": (
-                models.scheduler_D.state_dict() if models.scheduler_D else None
+            "scheduler_D_A_state_dict": (
+                models.scheduler_D_A.state_dict() if models.scheduler_D_A else None
+            ),
+            "scheduler_D_B_state_dict": (
+                models.scheduler_D_B.state_dict() if models.scheduler_D_B else None
             ),
 
             # training state
@@ -253,8 +256,10 @@ class CycleGANCheckpointManager:
 
             if models.scheduler_G and checkpoint_data.get("scheduler_G_state_dict"):
                 models.scheduler_G.load_state_dict(checkpoint_data["scheduler_G_state_dict"])
-            if models.scheduler_D and checkpoint_data.get("scheduler_D_state_dict"):
-                models.scheduler_D.load_state_dict(checkpoint_data["scheduler_D_state_dict"])
+            if models.scheduler_D_A and checkpoint_data.get("scheduler_D_A_state_dict"):
+                models.scheduler_D_A.load_state_dict(checkpoint_data["scheduler_D_A_state_dict"])
+            if models.scheduler_D_B and checkpoint_data.get("scheduler_D_B_state_dict"):
+                models.scheduler_D_B.load_state_dict(checkpoint_data["scheduler_D_B_state_dict"])
 
             state_dict = checkpoint_data.get("training_state", {})
             state = TrainingState(**{
@@ -378,9 +383,13 @@ class CycleGANCheckpointManager:
             return last_checkpoint.resolve()
 
         # Fallback: find latest by modification time
-        return Path(
-            max(self.list_checkpoints().values(), key=lambda p: p.stat().st_mtime)
-        )
+        visible_checkpoints = list(self.list_checkpoints().values())
+        if visible_checkpoints:
+            return Path(
+                max(visible_checkpoints, key=lambda p: p.stat().st_mtime)
+            )
+        else:
+            return None
 
     def get_best_checkpoint(self) -> Optional[Path]:
         """Get path to the best checkpoint."""
@@ -405,14 +414,25 @@ class CycleGANCheckpointManager:
         if self.save_top_k <= 0:
             return
 
-        checkpoints = [
-            p for p in self.list_checkpoints().values()
+        cleanup_candidates = list(self.list_checkpoints().values())
+
+        symlink_targets = set()
+        for candidate in cleanup_candidates:
+            if candidate.is_symlink():
+                try:
+                    symlink_targets.add(candidate.resolve(strict=True))
+                except FileNotFoundError:
+                    pass
+
+        cleanup_candidates = [
+            p for p in cleanup_candidates
             if p.is_file() and not p.is_symlink()
+            and p.resolve() not in symlink_targets
         ]
 
-        checkpoints.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        cleanup_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
-        for checkpoint in checkpoints[self.save_top_k:]:
+        for checkpoint in cleanup_candidates[self.save_top_k:]:
             try:
                 checkpoint.unlink()
                 logger.debug(f"Removed old checkpoint: {checkpoint}")
@@ -435,6 +455,35 @@ class CycleGANCheckpointManager:
         missing_keys = [k for k in CHECKPOINT_SIGNATURE if k not in checkpoint_data]
         if missing_keys:
             raise KeyError(f"Checkpoint missing required keys: {missing_keys}")
+
+
+def auto_resume_training(
+    checkpoint_manager: CycleGANCheckpointManager,
+    models: CycleGANModels,
+    resume_from: Optional[str] = None
+) -> tuple[TrainingState, bool]:
+    """Automatically resume from latest or specified checkpoint.
+
+    Args:
+        checkpoint_manager: Checkpoint manager instance
+        models: Model components
+        resume_from: Specified checkpoint path, or None for latest
+
+    Returns:
+        Tuple of (training_state, was resumed)
+    """
+    if resume_from:
+        checkpoint_path = Path(resume_from)
+    else:
+        checkpoint_path = checkpoint_manager.get_latest_checkpoint()
+
+    if checkpoint_path and checkpoint_path.exists():
+        logger.info(f"Resuming training from: {checkpoint_path}")
+        state = checkpoint_manager.load_checkpoint(models, checkpoint_path)
+        return state, True
+    else:
+        logger.info("No checkpoints found, starting fresh session")
+        return TrainingState(), False
 
 
 if __name__ == "__main__":
