@@ -29,6 +29,7 @@ flake8-import-order = "^0.19.2"
 flake8-docstrings = "^1.7.0"
 
 # PyTorch GPU source
+pytest-asyncio = "^1.2.0"
 [[tool.poetry.source]]
 name = "pytorch-gpu"
 url = "https://download.pytorch.org/whl/cu118"
@@ -43,7 +44,7 @@ disallow_untyped_defs = true
 exclude = '(^\.venv/|^build/|^dist/)'
 
 [tool.pytest.ini_options]
-testpaths = ["../tests/services/routing"]
+testpaths = ["../../tests/services/routing"]
 python_files = ["test_*.py"]
 
 [build-system]

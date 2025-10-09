@@ -158,6 +158,8 @@ async def classify(file: UploadFile = File(...)):
 
     except InferenceError:
         raise
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error(f"Unexpected error during classification: {e}")
