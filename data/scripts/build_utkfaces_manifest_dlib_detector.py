@@ -115,10 +115,10 @@ def get_label_from_name(img_path: Path) -> Optional[str]:
 def get_age_from_name(img_path: Path) -> Optional[int]:
     """Helper function to get the age of the person from image path."""
     try:
-        return int(str(img_path).split('_')[0])
-    finally:
-        return None
-
+        return int(str(img_path.name).split('_')[0])
+    except Exception:
+        pass
+    return None
 
 def process_single_image(
     img_path: Path,
