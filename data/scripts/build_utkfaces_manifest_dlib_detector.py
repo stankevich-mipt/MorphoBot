@@ -38,18 +38,16 @@ Action sequence
     5. Log MLFLow run with parameters, counters, and artifacts
 
 Usage:
-    poetry run python training/gender_id/scripts/build_manifest.py \
-        --input-dir ./data/gender_datasets/utk_face/raw \
-        --output-path ./data/gender_datasets/utk_face/manifest.jsonl \
-        --predictor-path
-            ./training/gender_id/data/detectors/dlib68/
-            shape_predictor_68_face_landmarks.dat \
-        --experiment-name gender-data-prep \
-        --label-from-folder
+    poetry run python -m scripts.build_ukfaces_manifest_mlflow.py
+        --input-dir ./data/gender_datasets/utkfaces/
+        --output-path ./data/gender_datasets/utkfaces/
+        --predictor-path .
+        --experiment-name gender-data-prep
 """
 
 
 import argparse
+from dataclasses import asdict, dataclass
 import json
 import os
 from pathlib import Path
@@ -79,6 +77,23 @@ from vision.utils import (
 
 DEFAULT_PREDICTOR_WEIGHTS_FILENAME = "shape_predictor_68_face_landmarks.dat"
 
+MINIMAL_VALID_RECORD_SIGNATURE = {
+    "src", "status", "reason", "bbox", "width", "height", "label"
+}
+
+
+@dataclass
+class ImageRecord:
+    """Schema for image record in manifest file."""
+    src: str
+    status: str
+    reason: str
+    bbox: Optional[list[int]] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    label: Optional[str] = None
+    age: Optional[int] = None
+
 
 def rect_to_xyxy(rect: dlib.rectangle) -> tuple[int, int, int, int]:  # type: ignore
     """Rectange object from dlib to tuple of ints."""
@@ -97,89 +112,74 @@ def get_label_from_name(img_path: Path) -> Optional[str]:
     return "female" if int(label) else "male"
 
 
+def get_age_from_name(img_path: Path) -> Optional[int]:
+    """Helper function to get the age of the person from image path."""
+    try:
+        return int(str(img_path).split('_')[0])
+    finally:
+        return None
+
+
 def process_single_image(
     img_path: Path,
     dlib_detector: Dlib68Detector,
     preview_limit: int,
     counters: dict,
     preview_images: list[np.ndarray]
-):
+) -> ImageRecord:
     """Create an image record with metadata."""
-    rec = {
-        "src": str(img_path),
-        "status": None,
-        "bbox": None,
-        "width": None,
-        "height": None,
-        "label": None,
-        "reason": None
-    }
-
     img = read_image_bgr(img_path)
 
     if img is None:
-        rec["status"] = "read_error"
-        rec["reason"] = "cv2_imread_failed"
         counters["read_error"] += 1
-        return rec
+        return ImageRecord(str(img_path), "read_error", "cv2_imread_failed")
 
+    age = get_age_from_name(img_path)
     label = get_label_from_name(img_path)
-    if not label:
-        rec["status"] = "no_label"
-        rec["reason"] = "img_name_doesn't_follow_convention"
-        counters["no_label"] += 1
-        return rec
-
-    rec["label"] = label
 
     H, W = img.shape[:2]
-    rec["width"], rec["height"] = W, H
 
     # bounding box
     try:
         bbox = dlib_detector.detect_one(img)
 
     except Exception as e:
-        rec["status"] = "invalid_image"
-        rec["reason"] = f"detector_exception:{type(e).__name__}"
         counters["invalid_image"] += 1
-        return rec
+        return ImageRecord(
+            str(img_path), "invalid_image", f"detector_exception:{type(e).__name__}")
 
     if bbox is None:
-        rec["status"] = "no_face"
-        rec["reason"] = "dlib_couldn't_detect_any_faces"
         counters["no_face"] += 1
-        return rec
+        return ImageRecord(str(img_path), "no_face", "dlib_couldn't_detect_any_faces")
 
     ok_bbox, reason_bbox = bbox_is_plausible(list(rect_to_xyxy(bbox)), W, H)
 
     if not ok_bbox:
-        rec["status"] = "no_face"
-        rec["reason"] = f"bbox_{reason_bbox}"
         counters["no_face"] += 1
-        return rec
+        return ImageRecord(str(img_path), "no_face", f"bbox_{reason_bbox}")
 
     # landmarks
     try:
         landmarks = dlib_detector.landmarks68(img, bbox)
     except Exception as e:
-        rec["status"] = "landmarks_failed"
-        rec["reason"] = f"predictor_exception:{type(e).__name__}"
         counters["landmarks_failed"] += 1
-        return rec
+        return ImageRecord(
+            str(img_path), "landmarks_failed", f"predictor_exception:{type(e).__name__}")
 
     bbox = dlib_detector.expand_with_margin(bbox, img)
     bbox = rect_to_xyxy(bbox)
-    rec["bbox"] = list(bbox)
-    rec["landmarks68"] = landmarks.tolist()
-    rec["status"] = "ok"
+
     counters["ok"] += 1
 
     # Collect preview sample
     if len(preview_images) < preview_limit:
         preview_images.append(draw_preview(img, bbox, landmarks))
 
-    return rec
+    return ImageRecord(
+        str(img_path), "ok", "ok",
+        bbox=list(bbox), height=H, width=W,
+        label=label, age=age
+    )
 
 
 def write_manifest(manifest_path: Path, records: list[dict]):
@@ -199,7 +199,7 @@ def log_mlflow_metrics_and_artifacts(
         mlflow.log_metrics(counters)
         mlflow.set_tags(TAG_PROFILES["alignment_manifest"])
         mlflow.set_tags({
-            "version": "v1",
+            "version": "v1.1",
             "description":
                 "manifest for landmark dataset "
                 "created from UTKFaces and labeled "
@@ -239,6 +239,10 @@ def parse_args():
         help="MLFlow experiment name prefix"
     )
     parser.add_argument(
+        "--with-age", action="store_true",
+        help="If set, add age data to the manifest file"
+    )
+    parser.add_argument(
         "--preview-limit", type=int, default=16,
         help="Number of preview images to log as artifact"
     )
@@ -249,6 +253,17 @@ def parse_args():
 
     return parser.parse_args()
 
+
+def get_record_filter(args):
+    """Factory that produces a callable to filter ImageRecord fields."""
+    record_signature = MINIMAL_VALID_RECORD_SIGNATURE
+    if getattr(args, "with_age", None):
+        record_signature.add("age")
+
+    def record_filter(record: dict):
+        return {k: v for k, v in record.items() if k in record_signature}
+
+    return record_filter
 
 def main(): # noqa
 
@@ -287,7 +302,6 @@ def main(): # noqa
         "total": total,
         "ok": 0,
         "no_face": 0,
-        "no_label": 0,
         "landmarks_failed": 0,
         "read_error": 0,
         "invalid_image": 0,
@@ -296,6 +310,8 @@ def main(): # noqa
     records: list[dict] = []
 
     iterator = tqdm(enumerate(sorted(images), 1))
+
+    record_filter = get_record_filter(args)
 
     for idx, img_path in iterator:
 
@@ -306,7 +322,7 @@ def main(): # noqa
             img_path, dlib_detector, args.preview_limit,
             counters, preview_images
         )
-        records.append(rec)
+        records.append(record_filter(asdict(rec)))
 
     write_manifest(output_path, records)
 
@@ -314,6 +330,8 @@ def main(): # noqa
         experiment_id, counters,
         output_path, preview_images, args.preview_artifact
     )
+
+    predictor_path.unlink()
 
     print("Data prep complete")
     print("Counters:", counters)
