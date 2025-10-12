@@ -25,6 +25,7 @@ from typing import Any, Optional, Sequence, Union
 
 import mlflow
 from mlflow.models import infer_signature
+from mlflow.models.model import ModelInfo
 from mlflow.models.signature import ModelSignature
 from mlflow.pytorch import log_model as mlflow_torch_log_model
 from mlflow_registry import (
@@ -183,7 +184,7 @@ class ExperimentLogger:
         model_name: str,
         signature: Optional[ModelSignature] = None,
         input_example: Optional[TensorOrTensors] = None,
-    ) -> None:
+    ) -> ModelInfo | None:
         """Log Pytorch model using dedicated MLFlow API."""
         pip_requirements = self.get_poetry_requirements()
 
@@ -196,7 +197,7 @@ class ExperimentLogger:
         )
 
         if signature is not None:
-            log_cases(signature=signature)
+            return log_cases(signature=signature)
 
         elif input_example is not None:
 
@@ -208,14 +209,15 @@ class ExperimentLogger:
                         model_output.cpu().numpy()
                     )
 
-                log_cases(signature=signature, input_example=to_numpy(input_example))
+                return log_cases(signature=signature, input_example=to_numpy(input_example))
 
             except Exception as e:
                 logging.warning(
                     f"Got exception while trying to forward with {input_example}:{e}"
                 )
+                return None
 
         else:
 
             logger.info("Couldn't determine model's signature; logging without it")
-            log_cases()
+            return log_cases()

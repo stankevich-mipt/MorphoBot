@@ -15,8 +15,60 @@
 
 """Model parameters for CycleGAN+UTKFaces workflow."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Optional
+
+from mlflow.models.signature import ModelSignature
+from mlflow.types import Schema, TensorSpec
+from mlflow_registry.tags import Role, Stage, TagKeys, Type
+import numpy as np
+
+
+def _generator_mlflow_signature_factory():
+    return ModelSignature(
+        inputs=Schema([
+            TensorSpec(
+                type=np.dtype(np.float32),
+                shape=(-1, 3, 64, 64),
+                name="source domain images"
+            ),
+        ]),
+        outputs=Schema([
+            TensorSpec(
+                type=np.dtype(np.float32),
+                shape=(-1, 3, 64, 64),
+                name="target domain images"
+            ),
+        ])
+    )
+
+def _discriminator_mlflow_signature_factory():
+    return ModelSignature(
+        inputs=Schema([
+            TensorSpec(
+                type=np.dtype(np.float32),
+                shape=(-1, 3, 64, 64),
+                name="real or generated image"
+            ),
+        ]),
+        outputs=Schema([
+            TensorSpec(
+                type=np.dtype(np.float32),
+                shape=(-1, 1),
+                name="unnormalized real/fake quantifier"
+            ),
+        ])
+    )
+
+
+TAGS_RESNET_GENERATOR_DEV = {
+    TagKeys.TAG_TYPE: Type.MODEL,
+    TagKeys.TAG_ROLE: Role.IMAGE_TO_IMAGE_TRANSLATION_MODEL,
+    TagKeys.TAG_STAGE: Stage.DEVELOPMENT,
+    "framework": "cyclegan",
+    "component": "generator",
+    "architecture": "resnet",
+}
 
 
 @dataclass
@@ -40,6 +92,8 @@ class ResNetGeneratorConfig:
     dropout: Optional[float] = None
     padding_mode: Literal["reflect", "replicate", "zeros"] = "zeros"
 
+    def get_model_signature(self) -> ModelSignature:  # noqa: D102
+        return _generator_mlflow_signature_factory()
 
 @dataclass
 class PatchDiscriminatorConfig:
@@ -60,3 +114,6 @@ class PatchDiscriminatorConfig:
     norm: Literal["instance", "batch"] = "instance"
     padding_mode: Literal["zeros", "reflect", "replicate"] = "zeros"
     use_spectral_norm: bool = True
+
+    def get_model_signature(self) -> ModelSignature:  # noqa: D102
+        return _discriminator_mlflow_signature_factory()

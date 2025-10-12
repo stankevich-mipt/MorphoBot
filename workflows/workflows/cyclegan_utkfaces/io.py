@@ -344,7 +344,7 @@ class CycleGANCheckpointManager:
         logger.info(f"Loading inference models: {checkpoint_path}")
 
         try:
-            checkpoint_data = torch.load(checkpoint_path, map_location=map_location, weights_only=True)
+            checkpoint_data = torch.load(checkpoint_path, map_location=map_location)
 
             G_A2B.load_state_dict(checkpoint_data["G_A2B_state_dict"])
             G_B2A.load_state_dict(checkpoint_data["G_B2A_state_dict"])
