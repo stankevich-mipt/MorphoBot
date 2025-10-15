@@ -21,15 +21,12 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
 
 from configs.cyclegan_utkfaces.model import (
     ResNetGeneratorConfig,
+    TAGS_RESNET_GENERATOR_DEV,
 )
 from mlflow.client import MlflowClient
-from mlflow.models.signature import ModelSignature
-from mlflow.types import Schema, TensorSpec
-import numpy as np
 from workflows.common.config import get_config_instance
 from workflows.common.mlflow_experiment_logger import ExperimentLogger
 
@@ -97,6 +94,13 @@ def main():  # noqa: D103
     f2m_model_name = str(args.model_name_prefix) + "_f2m"
 
     with experiment_logger:
+
+        experiment_logger.log_experiment_tags({
+            **TAGS_RESNET_GENERATOR_DEV,
+            "m2f_model_name": m2f_model_name,
+            "f2m_model_name": f2m_model_name,
+        })
+
         model_info_m2f = experiment_logger.log_pytorch_model(
             generator_M2F, m2f_model_name,
             config_generator_M2F.get_model_signature()
