@@ -74,26 +74,37 @@ class ExperimentLogger:
         self.logger = logging.getLogger()
 
         configure_mlflow()
-        self.artifact_location = build_artifact_s3_uri(
-            experiment_name
-        )
+        self.artifact_location = build_artifact_s3_uri(experiment_name)
         self.experiment_id = ensure_experiment(
             self.experiment_name, self.artifact_location
         )
         self._poetry_requirements = None
+
+        # start a run to capture its id that will be referred to later
         self._current_run = None
+        with mlflow.start_run(experiment_id=self.experiment_id) as run:
+            self._run_id = run.info.run_id
+
+        # service variable to avoid starting the same run multiple times
+        self._context_depth = 0
 
     def __enter__(self):
-        """Capture current run in class attribute."""
+        """Capture run object in class attribute."""
         if self.experiment_id:
             mlflow.set_experiment(experiment_id=self.experiment_id)
-        self._current_run = mlflow.start_run(**self.start_kwargs)
+        if not self._context_depth:
+            self._current_run = mlflow.start_run(run_id=self._run_id)
+
+        self._context_depth += 1
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Stop the run, free the reference."""
-        mlflow.end_run()
-        self._current_run = None
+        """At zero context depth, stop the run and free the reference."""
+        self._context_depth -= 1
+
+        if not self._context_depth:
+            mlflow.end_run()
+            self._current_run = None
 
     def get_poetry_requirements(self) -> list[str]:
         """Extract requirements.txt directly with poetry export."""
