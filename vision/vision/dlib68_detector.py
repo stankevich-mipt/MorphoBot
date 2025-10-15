@@ -34,7 +34,7 @@ class Dlib68Detector:
         predictor_path: str | os.PathLike,
         detector_kind: str = 'hog',
         upsample_times: int = 1,
-        margin_ratio: tuple[float, float] = (0.10, 0.25),
+        margin_ratio: tuple[float, float] = (0.30, 0.60),
     ):
         """Instatiate object with preloaded predictor weights.
 

@@ -33,6 +33,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
@@ -43,17 +44,17 @@ def find_images(root: Path) -> list[Path]:
     return [p for p in root.rglob("*") if p.suffix.lower() in _IMG_EXTS]
 
 
-def read_bytes_bgr(data: bytes) -> np.ndarray:
+def read_bytes_bgr(data: bytes) -> npt.NDArray[np.uint8]:
     """Convert binary buffer with image data to numpy array."""
     arr = np.frombuffer(data, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     return np.asarray(img)
 
 
-def read_image_bgr(path: Path) -> Optional[np.ndarray]:
+def read_image_bgr(path: Path) -> Optional[npt.NDArray[np.uint8]]:
     """Load the image at path as numpy array (H, W, 3) in BGR."""
     img = cv2.imread(str(path))
-    return img
+    return np.asarray(img)
 
 
 def read_image_rgb(path: Path) -> Optional[np.ndarray]:

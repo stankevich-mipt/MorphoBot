@@ -29,6 +29,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 
 _LEFT_EYE_PTS = tuple(range(36, 42))
@@ -201,7 +202,7 @@ def warp_back_from_template(
 @dataclass(frozen=True)
 class Template:
     """Dataclass representing alignment template."""
-    points: np.ndarray
+    points: npt.NDArray[np.float32]
     target_size: int
 
 
@@ -297,6 +298,44 @@ class FivePointAligner:
         aligned, M, err = warp_to_template(
             img_bgr, src, dst.points,
             (dst.target_size, dst.target_size),
+        )
+
+        if aligned is None or M is None:
+            return None, None, float("inf")
+
+        H, W = img_bgr.shape[:2]
+        ctx = WarpContext(
+            M=M, dst_shape=(H, W)
+        )
+
+        return aligned, ctx, err
+
+    def align_to_template(
+        self,
+        img_bgr: np.ndarray,
+        pts68: np.ndarray,
+        template: Template,
+    ) -> tuple[np.ndarray | None, WarpContext | None, float]:
+        """Estimate and apply the Procrustes transform using provided template.
+
+        An alignment template to use is inferred through label,
+        with default attribute providing fallback.
+
+        Args
+            img_bgr: source image
+            pts68: float32/64 array of facial landmarks
+            template: Template instance describing alignment template
+
+        Returns:
+            aligned: (template.target_size, template.target_size, 3) or None
+            ctx: context for future inverse warp
+            err: mean squared error between points after alignment
+        """
+        src = select_five_from_68(pts68)
+
+        aligned, M, err = warp_to_template(
+            img_bgr, src, template.points,
+            (template.target_size, template.target_size),
         )
 
         if aligned is None or M is None:
