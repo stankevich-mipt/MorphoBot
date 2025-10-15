@@ -22,43 +22,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.types import Schema, TensorSpec
 from mlflow_registry.tags import Role, Stage, TagKeys, Type
 import numpy as np
-
-
-def _generator_mlflow_signature_factory():
-    return ModelSignature(
-        inputs=Schema([
-            TensorSpec(
-                type=np.dtype(np.float32),
-                shape=(-1, 3, 64, 64),
-                name="source domain images"
-            ),
-        ]),
-        outputs=Schema([
-            TensorSpec(
-                type=np.dtype(np.float32),
-                shape=(-1, 3, 64, 64),
-                name="target domain images"
-            ),
-        ])
-    )
-
-def _discriminator_mlflow_signature_factory():
-    return ModelSignature(
-        inputs=Schema([
-            TensorSpec(
-                type=np.dtype(np.float32),
-                shape=(-1, 3, 64, 64),
-                name="real or generated image"
-            ),
-        ]),
-        outputs=Schema([
-            TensorSpec(
-                type=np.dtype(np.float32),
-                shape=(-1, 1),
-                name="unnormalized real/fake quantifier"
-            ),
-        ])
-    )
+import numpy.typing as npt
 
 
 TAGS_RESNET_GENERATOR_DEV = {
@@ -70,6 +34,48 @@ TAGS_RESNET_GENERATOR_DEV = {
     "architecture": "resnet",
 }
 
+
+@dataclass
+class GeneratorSignature:
+    """Required fields to assemble ModelSignature for generator."""
+    input_type: npt.DTypeLike = np.dtype(np.float32)
+    input_shape: tuple[int, int, int, int] = (-1, 3, 64, 64)
+    input_name: str = "source domain images"
+    output_type: npt.DTypeLike = np.dtype(np.float32)
+    output_shape: tuple[int, int, int, int] = (-1, 3, 64, 64)
+    output_name: str = "target domain images"
+
+
+@dataclass
+class DiscriminatorSignature:
+    """Required fields to assemble ModelSignature for discriminator."""
+    input_type: npt.DTypeLike = np.dtype(np.float32)
+    input_shape: tuple[int, int, int, int] = (-1, 3, 128, 128)
+    input_name: str = "real or generated image"
+    output_type: npt.DTypeLike = np.dtype(np.float32)
+    output_shape: tuple[int] = (-1,)
+    output_name: str = "unnormalized real/fake quantifier"
+
+
+def _mlflow_signature_factory(
+    signature: GeneratorSignature | DiscriminatorSignature
+):
+    return ModelSignature(
+        inputs=Schema([
+            TensorSpec(
+                type=signature.input_type,
+                shape=signature.input_shape,
+                name=signature.input_name
+            ),
+        ]),
+        outputs=Schema([
+            TensorSpec(
+                type=signature.output_type,
+                shape=signature.output_shape,
+                name=signature.output_name
+            ),
+        ])
+    )
 
 @dataclass
 class ResNetGeneratorConfig:
@@ -93,7 +99,7 @@ class ResNetGeneratorConfig:
     padding_mode: Literal["reflect", "replicate", "zeros"] = "zeros"
 
     def get_model_signature(self) -> ModelSignature:  # noqa: D102
-        return _generator_mlflow_signature_factory()
+        return _mlflow_signature_factory(GeneratorSignature())
 
 @dataclass
 class PatchDiscriminatorConfig:
@@ -116,4 +122,4 @@ class PatchDiscriminatorConfig:
     use_spectral_norm: bool = True
 
     def get_model_signature(self) -> ModelSignature:  # noqa: D102
-        return _discriminator_mlflow_signature_factory()
+        return _mlflow_signature_factory(DiscriminatorSignature())

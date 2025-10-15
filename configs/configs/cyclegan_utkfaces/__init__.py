@@ -21,11 +21,11 @@ to training cyclegan model with utkfaces dataset.
 """
 
 from .model import (
+    PatchDiscriminatorConfig,
     ResNetGeneratorConfig,
-    PatchDiscriminatorConfig
 )
 
 __all__ = [
+    "PatchDiscriminatorConfig",
     "ResNetGeneratorConfig",
-    "PatchDiscriminatorConfig"
 ]
