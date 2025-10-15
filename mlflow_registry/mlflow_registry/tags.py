@@ -54,6 +54,8 @@ class Role(strEnum):
     ALIGNED_DATASET = "aligned_dataset"
     PREVIEW = "functionality_preview"
     CLASSIFICATION_MODEL = "classification_model"
+    METRICS_EVALUATION_MODEL = "metrics_evaluation_model"
+    IMAGE_TO_IMAGE_TRANSLATION_MODEL = "image_to_image_translation_model"
 
 class Stage(strEnum):
     """Project lifecycle stages."""
@@ -64,6 +66,7 @@ class Stage(strEnum):
 class ModelFamily(strEnum):
     """Network family."""
     RESNET_CLASSIFIERS = "resnet_classifiers"
+    INCEPTION_V3 = "inception_v3"
 
 
 TagValues = Union[Type, Role, Stage, ModelFamily]
