@@ -1,0 +1,40 @@
+services:
+  gender-translation-api:
+    build:
+      context: ../../
+      dockerfile: services/gender_translation/Dockerfile.dev
+      ssh: 
+        default: ${SSH_AUTH_SOCK}
+    container_name: worker
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI} 
+      MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_SERVER_DEFAULT_ARTIFACT_ROOT}
+      
+      MODEL_BACKEND: ${MODEL_BACKEND} 
+      MODEL_M2F_ALIAS: ${MODEL_M2F_ALIAS}
+      MODEL_F2M_ALIAS: ${MODEL_F2M_ALIAS}
+      ARTIFACTS_OUTPUT_DIR: ${ARTIFACTS_OUTPUT_DIR}
+      USE_MIXED_PRECISION: ${USE_MIXED_PRECISION}
+      DEVICE: ${DEVICE}
+
+      LOG_LEVEL: INFO
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "8001:8001"
+    networks:
+      - mlflow-network
+    restart: unless-stopped
+    
+
+networks:
+  mlflow-network:
+    external: true
