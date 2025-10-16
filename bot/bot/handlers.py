@@ -24,115 +24,199 @@ sending a photo to a bot
 import aiohttp
 import asyncio
 import io
+import os 
 
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
 
+# Configuration
+CLASSIFY_URL = os.getenv("CLASSIFY_URL", "http://localhost:8000/classify")
+TRANSLATE_URL = os.getenv("TRANSLATE_URL", "http://localhost:8001/translate")
+
+
 async def start_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Handle /start command logic.
 
     Attributes:
-        update (telegram.Update): the telegram update event
-        containing the message info
+        update: Update event
         ctx: callback context
     """
+    if not update.message:
+        return 
+
     await update.message.reply_text(
         "👋 Hi! Send me a selfie and I'll do something funny with it."
-    )
+    )   
 
 help_cmd = start_cmd  # alias
 
 
 async def photo_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Route user photo to inference microservice.
-
+    """Route user photo through classification and translation pipeline.
+    
+    First classifies the gender of the person in the photo, then uses
+    that classification to call the translation service with the correct
+    source_gender parameter.
+    
     Attributes:
-        update (telegram.Update): the telegram update event
-        containing the message info
+        update (telegram.Update): the telegram update event 
+            containing the message info
         ctx: callback context
-
     """
+    if not update.message:
+        return    
     if not update.message.photo:
-        return
+        await update.message.reply_text("❌ Please, provide a photo.")
 
-    await update.message.reply_chat_action("upload_photo")
-    # Grab highest-resolution photo object
-    photo = update.message.photo[-1]
-    file_info = await ctx.bot.get_file(photo.file_id)
-    file_bytes = await file_info.download_as_bytearray()
-
-    file_bytes = io.BytesIO(file_bytes)
-
-    await update.message.reply_photo(
-        file_bytes,
-        caption="Here you go!  🚀"
-    )
-
-    # TODO: POST bytes to image-processor service, get swapped_img
-    # swapped_img = await call_processor(file_bytes)
-
-
-async def classify_photo(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
     
-    INFER_URL = "http://localhost:8000/classify"
-    
-    message = update.effective_message
-    if not message or not message.photo:
-        await message.reply_text("Please send a photo.")
-        return
-    
+    message = update.message
     photo = message.photo[-1]
-
-    try: 
-        await context.bot.send_chat_action(
-            chat_id=message.chat_id, action=ChatAction.TYPING
+    
+    try:
+        # Step 1: Download photo from Telegram
+        await ctx.bot.send_chat_action(
+            chat_id=message.chat_id, 
+            action=ChatAction.TYPING
         )
-
-        file = await context.bot.get_file(photo.file_id)
+        
+        file = await ctx.bot.get_file(photo.file_id)
         image_bytes = await file.download_as_bytearray()
-
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        
+        # Step 2: Classify gender
+        await message.reply_text("🔍 Detecting gender...")
+        
+        classify_timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=classify_timeout) as session:
             form = aiohttp.FormData()
             form.add_field(
-                "file", image_bytes,
-                filename="photo.jpg", content_type="image/jpeg"
+                "file", 
+                image_bytes,
+                filename="photo.jpg", 
+                content_type="image/jpeg"
             )
-
-            async with session.post(INFER_URL, data=form) as resp:
+            
+            async with session.post(CLASSIFY_URL, data=form) as resp:
                 if resp.status == 400:
                     data = await resp.json()
                     await message.reply_text(
-                        f"Could not process: {data.get('error', 'bad_request')}")
-                    return
-                if resp.status >= 500:
-                    await message.reply_text(
-                        "Service is unavailable, please try again later"
+                        f"❌ Could not classify the photo: "
+                        f"{data.get('error', 'bad_request')}"
                     )
                     return
+                
+                if resp.status >= 500:
+                    await message.reply_text(
+                        "⚠️ Classification service is unavailable. "
+                        "Please try again later."
+                    )
+                    return
+                
+                if resp.status != 200:
+                    await message.reply_text(
+                        f"❌ Classification failed (status {resp.status})"
+                    )
+                    return
+                
                 data = await resp.json()
-
-        if "predicted_class" not in data:
-            await message.reply_text("No prediction returned.")
-            return
+                if "predicted_class" not in data:
+                    await message.reply_text("❌ No classification returned.")
+                    return
+                
+                predicted_gender = data["predicted_class"]
+                confidence = data.get("confidence", 0.0)
+                
+                # Validate gender classification
+                if predicted_gender not in ["male", "female"]:
+                    await message.reply_text(
+                        f"❌ Unexpected classification: {predicted_gender}"
+                    )
+                    return
         
-        label = data["predicted_class"]
-        conf  = data.get("confidence")
-        bbox  = data.get("bbox")
-        parts = [f"Class: {label}"]
+        # Step 3: Translate gender using classification result
+        await ctx.bot.send_chat_action(
+            chat_id=message.chat_id, 
+            action=ChatAction.UPLOAD_PHOTO
+        )
+        await message.reply_text(
+            f"✨ Detected {predicted_gender} (confidence: {confidence:.2%})\n"
+            f"🔄 Translating gender..."
+        )
         
-        if conf is not None:
-            parts.append(f"Confidence: {conf:.3f}")
-        if bbox is not None:
-            parts.append(f"BBox: {tuple(bbox)}")
-        await message.reply_text("\n".join(parts))
+        translate_timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=translate_timeout) as session:
+            form = aiohttp.FormData()
+            form.add_field(
+                "file", 
+                image_bytes,
+                filename="photo.jpg", 
+                content_type="image/jpeg"
+            )
 
+            form.add_field("source_gender", predicted_gender)
+            form.add_field("include_debug", "false")
+            
+            async with session.post(TRANSLATE_URL, data=form) as resp:
+                if resp.status == 400:
+                    await message.reply_text(
+                        "❌ Could not process the photo for translation. "
+                        "Please make sure it contains a clear face."
+                    )
+                    return
+                
+                if resp.status == 413:
+                    await message.reply_text(
+                        "❌ Photo is too large. Maximum size is 10 MB."
+                    )
+                    return
+                
+                if resp.status >= 500:
+                    await message.reply_text(
+                        "⚠️ Translation service is temporarily unavailable. "
+                        "Please try again later."
+                    )
+                    return
+                
+                if resp.status != 200:
+                    await message.reply_text(
+                        f"❌ Translation failed (status {resp.status})"
+                    )
+                    return
+                
+
+                translated_bytes = await resp.read()
+                
+                source_gender = resp.headers.get("X-Source-Gender", predicted_gender)
+                target_gender = resp.headers.get("X-Target-Gender", "unknown")
+                processing_time = resp.headers.get("X-Processing-Time-Ms", "N/A")
+                
+                caption = (
+                    f"✨ Gender translation complete!\n"
+                    f"🔍 Detected: {predicted_gender.capitalize()} "
+                    f"({confidence:.1%} confidence)\n"
+                    f"🔄 Translated: {source_gender.capitalize()} → "
+                    f"{target_gender.capitalize()}\n"
+                    f"⏱️ Processing time: {processing_time} ms"
+                )
+                
+                translated_img = io.BytesIO(translated_bytes)
+                await message.reply_photo(
+                    translated_img,
+                    caption=caption
+                )
+    
     except asyncio.TimeoutError:
-        await message.reply_text("Processing timed out, please try again.")
-    except Exception:
-        await message.reply_text("Unexpected error during classification.")
-
+        await message.reply_text(
+            "⏰ Processing timed out. The service might be overloaded. "
+            "Please try again."
+        )
+    except aiohttp.ClientError:
+        await message.reply_text(
+            "❌ Could not connect to the processing services. "
+            "Please check if they are running."
+        )
+    except Exception as e:
+        await message.reply_text(
+            "❌ An unexpected error occurred during processing."
+        )

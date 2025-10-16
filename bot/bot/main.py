@@ -63,7 +63,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from .handlers import help_cmd, classify_photo, start_cmd
+from .handlers import help_cmd, photo_received, start_cmd
 from .settings import settings
 
 from fastapi import FastAPI, HTTPException, Header, Request
@@ -91,7 +91,7 @@ tg_app: Application = (
 tg_app.add_handler(CommandHandler("start", start_cmd))
 tg_app.add_handler(CommandHandler("help", help_cmd))
 tg_app.add_handler(
-    MessageHandler(filters.PHOTO & ~filters.COMMAND, classify_photo)
+    MessageHandler(filters.PHOTO & ~filters.COMMAND, photo_received)
 )
 
 
@@ -120,6 +120,8 @@ async def run_polling():
     await tg_app.initialize()
     await tg_app.start()
     logger.info("Polling started ➜ Ctrl-C to stop")
+    if not tg_app.updater:
+        raise RuntimeError("Unexpected error - no updater found.")
     await tg_app.updater.start_polling()
 
 
@@ -162,7 +164,7 @@ async def set_webhook():
     await tg_app.initialize()
     await tg_app.bot.set_webhook(
         url=f"{settings.webhook_base}{WEBHOOK_PATH}",
-        secret_token=settings.secret_token,  # header validation[14]
+        secret_token=settings.secret_token,
         drop_pending_updates=True,
     )
     logger.info("Webhook registered")
