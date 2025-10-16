@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists*
+
+RUN python3 -m pip install --no-cache-dir poetry
+
+COPY bot/pyproject.toml bot/poetry.lock bot/README.md ./
+
+COPY bot/bot bot/
+
+
+RUN poetry config virtualenvs.create false \
+    && poetry install --without dev --no-interaction --no-ansi
+
+ENV PYTHONUNBUFFERED=1
+CMD ["uvicorn", "bot.main:app", "--host", "0.0.0.0", "--port", "8000"]

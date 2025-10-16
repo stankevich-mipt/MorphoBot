@@ -1,0 +1,19 @@
+services:
+  telegram-bot-frontend:
+    build:
+      context: ../
+      dockerfile: bot/Dockerfile.dev
+    container_name: telegram-bot-frontend-worker
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      SECRET_TOKEN: ${SECRET_TOKEN}
+      POLL_MODE: ${POLL_MODE}
+      CLASSIFY_URL: ${CLASSIFY_URL}
+      TRANSLATE_URL: ${TRANSLATE_URL}
+    networks:
+      - mlflow-network
+
+networks:
+  mlflow-network:
+    external: true
+      
