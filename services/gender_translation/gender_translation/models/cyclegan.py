@@ -143,7 +143,9 @@ class CycleGANBackend(ModelBackend):
             signature_dict = getattr(mlflow_models.get_model_info(g_m2f_uri), "_signature_dict", None)
             if signature_dict is None:
                 raise AttributeError("Could not fetch signature dict from model info")
-            signature = from_dict(GeneratorSignature, signature_dict)
+
+            signature = GeneratorSignature()
+            signature.update_with_mlflow_signature_dict(signature_dict)
 
             logger.info("CycleGAN models loaded successfully.")
 
