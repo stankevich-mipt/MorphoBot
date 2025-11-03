@@ -98,7 +98,5 @@ def harmonize_and_blend(
     soft_mask = cv2.GaussianBlur(mask.astype(np.float32), (feather_size*2+1, feather_size*2+1), 0)
     soft_mask = np.clip(soft_mask, 0, 1)
 
-    print(harmonized, original)
-
     out = harmonized.astype(np.float32) * soft_mask + original.astype(np.float32) * (1 - soft_mask)
     return out.astype(np.uint8)
