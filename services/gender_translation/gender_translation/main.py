@@ -237,10 +237,6 @@ async def translate_gender(
             "X-Source-Gender": result.source_gender,
             "X-Target-Gender": result.target_gender,
             "X-Processing-Time-Ms": str(int(result.processing_time_ms)),
-            "X-Face-Bbox": (
-                f"{result.bbox[0]}, {result.bbox[1]}, "
-                f"{result.bbox[2]}, {result.bbox[3]}"
-            ),
             "X-Backend-Type": result.model_info.get("backend", MODEL_BACKEND),
             "Content-Type": "image/jpeg",
             "Content-Length": str(len(translated_bytes))

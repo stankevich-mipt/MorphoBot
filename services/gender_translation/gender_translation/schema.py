@@ -44,7 +44,6 @@ class TranslationResult:
     """Result of gender translation operation."""
     source_gender: str
     target_gender: str
-    bbox: tuple[int, int, int, int]
     processing_time_ms: float
     model_info: dict[str, Any]
     status: str = "success"

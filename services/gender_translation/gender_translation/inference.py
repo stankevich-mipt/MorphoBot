@@ -48,8 +48,8 @@ from .schema import (
 )
 from .utils import (
     create_alignment_template,
+    harmonize_and_blend,
     pil_to_bytes,
-    rect_to_xyxy,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,11 +58,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FaceProcessingContext:
     """Dataclass aggregating info about forward step of face processing."""
-    bbox: Optional[tuple[int, int, int, int]] = None
-    face_tensor: Optional[torch.Tensor] = None
-    mask: Optional[np.ndarray] = None
-    warp_context: Optional[WarpContext] = None
-    alignment_template: Optional[Template] = None
+    face_tensor: torch.Tensor
+    mask: np.ndarray
+    local_mask: np.ndarray
+    warp_context: WarpContext
+    alignment_template: Template
 
 
 class FaceDetector:
@@ -104,7 +104,7 @@ class FaceDetector:
 
     def process_image(
         self, image: np.ndarray
-    ) -> tuple[Optional[torch.Tensor], FaceProcessingContext]:
+    ) -> Optional[FaceProcessingContext]:
         """Detect, align, and preprocess face from image.
 
         Returns:
@@ -118,28 +118,34 @@ class FaceDetector:
             # detect face
             bbox = self.detector.detect_one(image)
             if bbox is None:
-                return None, FaceProcessingContext()
+                return None
 
             # crop with margin to get neck/hair
             bbox = self.detector.expand_with_margin(bbox, image)
-            image = image[bbox.top():bbox.bottom(), bbox.left(): bbox.right()]
+            bbox_region = image[bbox.top():bbox.bottom(), bbox.left(): bbox.right()]
 
             # get alignment template of size given by min(H,W)
-            template = create_alignment_template(size=(min(image.shape[0], image.shape[1])))
+            template = create_alignment_template(
+                size=(min(bbox_region.shape[0], bbox_region.shape[1])))
 
             landmarks = self.detector.landmarks68(
-                image, self.detector._xyxy_to_rect(0, 0, image.shape[1], image.shape[0]))
+                bbox_region, self.detector._xyxy_to_rect(
+                    0, 0, bbox_region.shape[1], bbox_region.shape[0]
+                )
+            )
             if landmarks is None:
-                return None, FaceProcessingContext()
+                return None
 
-            aligned_face, warp_context, _ = self.aligner.align_to_template(image, landmarks, template)
-            if aligned_face is None:
-                return None, FaceProcessingContext()
+            aligned_face, warp_context, _ = self.aligner.align_to_template(bbox_region, landmarks, template)
+            if aligned_face is None or warp_context is None:
+                return None
 
             # get mask to fill the blanks with original pixels
             mask_warp, _, _ = self.aligner.align_to_template(
-                np.ones_like(image), landmarks, template)
-            mask = self.aligner.reverse_warp(mask_warp, warp_context).astype(np.bool_)  # type: ignore
+                np.ones_like(bbox_region), landmarks, template)
+            local_mask = self.aligner.reverse_warp(mask_warp, warp_context).astype(np.bool_)  # type: ignore
+            mask = np.zeros_like(image)
+            mask[bbox.top():bbox.bottom(), bbox.left(): bbox.right()] = local_mask
 
             face_rgb = cv2.cvtColor(aligned_face, cv2.COLOR_BGR2RGB)
             face_normalized = face_rgb.astype(np.float32) / 255.0
@@ -147,54 +153,51 @@ class FaceDetector:
             face_tensor = torch.from_numpy(face_normalized.transpose(2, 0, 1))
             face_tensor = (face_tensor * 2.0 - 1).unsqueeze(0)
 
-            return face_tensor, FaceProcessingContext(
+            return FaceProcessingContext(
+                face_tensor=face_tensor,
                 alignment_template=template,
-                bbox=rect_to_xyxy(bbox),
                 mask=mask,
+                local_mask=local_mask,
                 warp_context=warp_context
             )
 
         except Exception as e:
             logger.error(f"Error in face processing: {e}")
-            return None, FaceProcessingContext()
+            return None
 
-    def postprocess_image(
+    def postprocess_result(
         self,
-        translated_image: torch.Tensor,
+        result: torch.Tensor,
         original_image: np.ndarray,
         context: FaceProcessingContext
     ) -> np.ndarray:
         """Invert the stack of transforms done with process_image."""
-        translated_image = torch.clamp(
-            translated_image.squeeze(0).permute(1, 2, 0), -1., 1.
+        result = torch.clamp(
+            result.squeeze(0).permute(1, 2, 0), -1., 1.
         )
 
-        np_image = (translated_image.detach().cpu().numpy() + 1.) / 2.
-        np_image = (np_image * 255.).astype(np.uint8)
+        np_result = (result.detach().cpu().numpy() + 1.) / 2.
+        np_result = (np_result * 255.).astype(np.uint8)
 
-        np_image = cv2.resize(
-            np_image, (
-                context.alignment_template.target_size,   # type: ignore
-                context.alignment_template.target_size    # type: ignore
+        np_result = cv2.resize(
+            np_result, (
+                context.alignment_template.target_size,
+                context.alignment_template.target_size
             )
         )
 
-        np_image = self.aligner.reverse_warp(
-            np_image, ctx=context.warp_context)  # type: ignore
-        np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
+        np_result = self.aligner.reverse_warp(np_result, ctx=context.warp_context)
+        np_result = cv2.cvtColor(np_result, cv2.COLOR_BGR2RGB)
 
-        bbox = context.bbox
+        patched_image = np.copy(original_image)
+        patched_image[context.mask > 0] = np_result[context.local_mask > 0]
 
-        result = np.copy(original_image)
-        result[bbox[1]:bbox[3], bbox[0]:bbox[2]] = (  # type: ignore
-            context.mask * np_image  # type: ignore
-            + (1 - context.mask) * original_image[bbox[1]:bbox[3], bbox[0]:bbox[2]]  # type: ignore
-        )
+        return cv2.cvtColor(
+            harmonize_and_blend(patched_image, original_image, context.mask), cv2.COLOR_BGR2RGB)
 
-        return cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
 
 class GenderTranslationEngine:
-    """Gender translation orchestractor with pluggable backends."""
+    """Gender translation orchestrator with pluggable backends."""
 
     def __init__(self, config: TranslationConfig, output_path: Optional[Path] = None):
         """Initialize translation engine.
@@ -232,7 +235,7 @@ class GenderTranslationEngine:
             source_gender: domain to translate from ("male" or "female")
 
         Returns:
-            Tuple of (translated_image_bytes, tranlation_result)
+            Tuple of (translated_image_bytes, translation_result)
         """
         start_time = time.time()
 
@@ -248,20 +251,21 @@ class GenderTranslationEngine:
             if image is None:
                 raise InvalidImageError("Failed to decode image bytes")
 
-            input_tensor, processing_context = self.face_detector.process_image(image)
-            if input_tensor is None or any(processing_context.__dataclass_fields__) is None:
+            processing_context = self.face_detector.process_image(image)
+            if processing_context is None:
                 raise NoFacesDetectedError("No valid faces detected in image")
 
-            result = self.translation_model.translate(input_tensor, source_gender)
+            result = self.translation_model.translate(
+                processing_context.face_tensor, source_gender)
 
-            result = self.face_detector.postprocess_image(result, image, processing_context)
+            result = self.face_detector.postprocess_result(result, image, processing_context)
             result_bytes = pil_to_bytes(Image.fromarray(result), format="JPEG", quality=95)
             processing_time = (time.time() - start_time) * 1000
 
             result = TranslationResult(
                 source_gender=source_gender,
                 target_gender=target_gender,
-                bbox=processing_context.bbox,  # type: ignore
+
                 processing_time_ms=processing_time,
                 model_info=self.translation_model.get_model_info()
             )
